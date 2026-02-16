@@ -1,9 +1,18 @@
 <#
   capture-window.ps1
-  Takes screenshots of each tab in the outlookmAnAger window.
+  Takes a screenshot of one (or all) tabs in the outlookmAnAger window.
   Uses PrintWindow API - does NOT steal focus or bring window to front.
   Output: artifacts\screenshot-N-tabname.png (numbered sequentially)
+
+  Usage:
+    .\capture-window.ps1              # capture all three tabs
+    .\capture-window.ps1 signatures   # capture only the Signatures tab
+    .\capture-window.ps1 permissions  # capture only the Permissions tab
+    .\capture-window.ps1 extras       # capture only the Extras tab
 #>
+param(
+    [string]$Tab = ''   # optional: 'signatures', 'permissions', 'extras'
+)
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -124,31 +133,45 @@ $tabCondition = New-Object System.Windows.Automation.PropertyCondition(
 )
 $tabItems = $rootElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $tabCondition)
 
-$tabNames = @('signatures', 'permissions', 'extras')
+$allTabNames = @('signatures', 'permissions', 'extras')
 
-for ($i = 0; $i -lt $tabItems.Count -and $i -lt $tabNames.Count; $i++) {
-    $tab = $tabItems[$i]
+# Decide which indices to capture
+$normalised = $Tab.Trim().ToLower()
+if ($normalised -eq '') {
+    $indicesToCapture = 0..($allTabNames.Count - 1)
+} else {
+    $idx = $allTabNames.IndexOf($normalised)
+    if ($idx -lt 0) {
+        Write-Error "Unknown tab '$Tab'. Valid values: $($allTabNames -join ', ')"
+        exit 1
+    }
+    $indicesToCapture = @($idx)
+}
+
+foreach ($i in $indicesToCapture) {
+    $tabItem = $tabItems[$i]
     try {
-        $selectPattern = $tab.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+        $selectPattern = $tabItem.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
         $selectPattern.Select()
     } catch {
         try {
-            $invokePattern = $tab.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+            $invokePattern = $tabItem.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
             $invokePattern.Invoke()
         } catch {
-            Write-Host "Could not switch to tab $i ($($tabNames[$i])): $_"
+            Write-Host "Could not switch to tab $i ($($allTabNames[$i])): $_"
         }
     }
     Start-Sleep -Milliseconds 500
-    Capture-Window -Suffix $tabNames[$i]
+    Capture-Window -Suffix $allTabNames[$i]
 }
 
-# Return to first tab
-if ($tabItems.Count -gt 0) {
+# Return to first tab only when capturing all tabs
+if ($normalised -eq '' -and $tabItems.Count -gt 0) {
     try {
         $selectPattern = $tabItems[0].GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
         $selectPattern.Select()
     } catch {}
 }
 
-Write-Host "All tabs captured (no focus stolen)."
+$captured = if ($normalised -eq '') { 'All tabs' } else { "Tab '$normalised'" }
+Write-Host "$captured captured (no focus stolen)."

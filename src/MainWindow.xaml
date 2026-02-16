@@ -252,48 +252,196 @@
       <TabItem Header="Signatures">
         <Grid Margin="0,8,0,0">
           <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="280"/>
-            <ColumnDefinition Width="16"/>
+            <!-- LEFT: library -->
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="12"/>
+            <!-- CENTER: editor + preview -->
             <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="12"/>
+            <!-- RIGHT: assignment grid -->
+            <ColumnDefinition Width="300"/>
           </Grid.ColumnDefinitions>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="*"/>
-          </Grid.RowDefinitions>
 
-          <!-- Left panel: signature list -->
+          <!-- ══ LEFT PANEL: Signature Library ══ -->
           <Grid Grid.Column="0">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto"/>
               <RowDefinition Height="8"/>
               <RowDefinition Height="*"/>
-              <RowDefinition Height="12"/>
+              <RowDefinition Height="10"/>
               <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Text="Available Signatures" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="2,0,0,0"/>
-            <ListBox Grid.Row="2" Name="LbSignatures"/>
-            <StackPanel Grid.Row="4" Orientation="Horizontal">
-              <Button Name="BtnCopySignature" Content="Copy" Width="80" Margin="0,0,8,0"/>
-              <Button Name="BtnExportSignature" Content="Export" Width="80" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}"/>
-              <Button Name="BtnImportSignature" Content="Import" Width="80" Style="{StaticResource SecondaryButton}"/>
-            </StackPanel>
+            <TextBlock Grid.Row="0" Text="SIGNATURES" FontWeight="SemiBold" FontSize="11"
+                       Foreground="{StaticResource TextSecondaryBrush}" Margin="2,0,0,0"/>
+
+            <!-- Signature list with validation indicators -->
+            <ListBox Grid.Row="2" Name="LbSignatures" />
+
+            <!-- Action buttons -->
+            <Grid Grid.Row="4">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="4"/>
+                <RowDefinition Height="Auto"/>
+              </Grid.RowDefinitions>
+              <Button Grid.Row="0" Grid.Column="0" Name="BtnNewSignature"       Content="New"       Style="{StaticResource SecondaryButton}" Padding="0,7"/>
+              <Button Grid.Row="0" Grid.Column="2" Name="BtnDuplicateSignature" Content="Duplicate" Style="{StaticResource SecondaryButton}" Padding="0,7"/>
+              <Button Grid.Row="2" Grid.Column="0" Name="BtnRenameSignature"    Content="Rename"    Style="{StaticResource SecondaryButton}" Padding="0,7"/>
+              <Button Grid.Row="2" Grid.Column="2" Name="BtnDeleteSignature"    Content="Delete"    Style="{StaticResource SecondaryButton}" Padding="0,7"/>
+            </Grid>
           </Grid>
 
-          <!-- Right panel: preview -->
-          <Border Grid.Column="2" Background="{StaticResource SurfaceBrush}" CornerRadius="8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="12">
+          <!-- ══ CENTER PANEL: Editor + Preview ══ -->
+          <Grid Grid.Column="2">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="8"/>
+              <RowDefinition Height="*"/>
+              <RowDefinition Height="10"/>
+              <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Signature name + toolbar row -->
+            <Grid Grid.Row="0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="6"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="6"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Name="TxtEditorTitle"
+                         Text="Select a signature"
+                         FontSize="14" FontWeight="SemiBold"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         VerticalAlignment="Center"/>
+              <Button Grid.Column="2" Name="BtnToggleEditor" Content="Edit HTML"
+                      Style="{StaticResource SecondaryButton}" Padding="10,6" FontSize="11"/>
+              <Button Grid.Column="4" Name="BtnSaveSignature" Content="Save"
+                      Padding="10,6" FontSize="11" IsEnabled="False"/>
+              <Button Grid.Column="6" Name="BtnRefreshSignatures" Content="Refresh"
+                      Style="{StaticResource SecondaryButton}" Padding="10,6" FontSize="13"/>
+            </Grid>
+
+            <!-- Preview / Editor area (toggled) -->
+            <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}"
+                    CornerRadius="8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+              <Grid>
+                <!-- WYSIWYG preview via WebBrowser -->
+                <!-- Scrollbar hidden via overflow:hidden injected into body on LoadCompleted in Ui.ps1 -->
+                <Border Name="PanelPreview" CornerRadius="7" ClipToBounds="True" Background="{StaticResource BgBrush}">
+                  <WebBrowser Name="PreviewBrowser"/>
+                </Border>
+                <!-- Raw HTML editor (hidden by default) -->
+                <TextBox Name="TxtHtmlEditor"
+                         Visibility="Collapsed"
+                         AcceptsReturn="True" AcceptsTab="True"
+                         TextWrapping="NoWrap"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Consolas" FontSize="12"
+                         Background="{StaticResource BgBrush}"
+                         Padding="12"
+                         BorderThickness="0"/>
+              </Grid>
+            </Border>
+
+            <!-- Status / validation line + export/import -->
+            <Grid Grid.Row="4">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="6"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Name="TxtSignatureInfo"
+                         Text="Select a signature to edit or preview."
+                         Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+              <Button Grid.Column="2" Name="BtnExportSignature" Content="Export"
+                      Style="{StaticResource SecondaryButton}" Padding="10,6" FontSize="11"/>
+              <Button Grid.Column="4" Name="BtnImportSignature" Content="Import"
+                      Style="{StaticResource SecondaryButton}" Padding="10,6" FontSize="11"/>
+            </Grid>
+          </Grid>
+
+          <!-- ══ RIGHT PANEL: Mailbox Assignment ══ -->
+          <Border Grid.Column="4" Background="{StaticResource SurfaceBrush}"
+                  CornerRadius="8" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="12">
             <Grid>
               <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="8"/>
+                <RowDefinition Height="10"/>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="10"/>
                 <RowDefinition Height="Auto"/>
               </Grid.RowDefinitions>
 
-              <TextBlock Grid.Row="0" Text="Preview" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
-              <Border Grid.Row="2" CornerRadius="4" ClipToBounds="True" Background="{StaticResource BgBrush}" Padding="1">
-                <WebBrowser Name="PreviewBrowser" Margin="0,0,0,0"/>
-              </Border>
-              <TextBlock Grid.Row="3" Name="TxtSignatureInfo" Text="Select a signature to preview." Foreground="{StaticResource TextSecondaryBrush}" Margin="0,8,0,0" FontSize="12"/>
+              <!-- Header -->
+              <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="Assignment" FontWeight="SemiBold" FontSize="13"
+                           Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Name="BtnRefreshAssignments" Content="Refresh"
+                        Style="{StaticResource SecondaryButton}" Padding="8,4" FontSize="13"/>
+              </Grid>
+
+              <!-- Column headers -->
+              <Grid Grid.Row="2">
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="6"/>
+                  <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="4,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="6"/>
+                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="6"/>
+                    <ColumnDefinition Width="90"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="Account" FontSize="11" FontWeight="SemiBold"
+                             Foreground="{StaticResource TextSecondaryBrush}"/>
+                  <TextBlock Grid.Column="2" Text="New mail" FontSize="11" FontWeight="SemiBold"
+                             Foreground="{StaticResource TextSecondaryBrush}"/>
+                  <TextBlock Grid.Column="4" Text="Reply" FontSize="11" FontWeight="SemiBold"
+                             Foreground="{StaticResource TextSecondaryBrush}"/>
+                </Grid>
+
+                <!-- Assignment rows scroll container -->
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                  <StackPanel Name="PanelAssignmentRows"/>
+                </ScrollViewer>
+              </Grid>
+
+              <!-- Apply button + Outlook warning -->
+              <Grid Grid.Row="4">
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="6"/>
+                  <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Button Grid.Row="0" Name="BtnApplyAssignments" Content="Apply to Outlook"
+                        HorizontalAlignment="Stretch"/>
+                <TextBlock Grid.Row="2" Name="TxtOutlookWarning"
+                           Text="[!] Outlook is running - restart to apply changes."
+                           Foreground="#E0A84A" FontSize="11" Visibility="Collapsed"
+                           TextWrapping="Wrap"/>
+              </Grid>
             </Grid>
           </Border>
         </Grid>

@@ -1,0 +1,7 @@
+# Dev artefacts - screenshots captured during development
+artifacts/
+
+# PowerShell / Windows
+*.pssproj.user
+Thumbs.db
+Desktop.ini
