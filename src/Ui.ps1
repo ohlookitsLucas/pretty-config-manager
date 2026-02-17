@@ -301,7 +301,8 @@ function Initialize-Ui {
 
         $script:sigPanelInboxList.Children.Clear()
         $script:sigPanelCopyTargets.Children.Clear()
-        $script:selectedPills = @()
+        $script:selectedPills       = @()
+        $script:selectedAccountKey  = $null   # prevent ghost-highlight after refresh
 
         if ($assignments.Count -eq 0) {
             $lbl = New-Object System.Windows.Controls.TextBlock
@@ -398,6 +399,10 @@ function Initialize-Ui {
                     $script:selectedSigName = $firstSig
                     Set-SelectedSigLabel $firstSig
                     Load-SignaturePreview $firstSig
+                } else {
+                    # Card has no signature — clear selection state
+                    $script:selectedSigName = $null
+                    Set-SelectedSigLabel '(none selected)'
                 }
             }).GetNewClosure())
 
@@ -871,6 +876,14 @@ function Initialize-Ui {
     $btnAssignSig.Add_Click({
         if ([string]::IsNullOrWhiteSpace($script:selectedSigName)) {
             Show-Error 'Click a signature name in the left panel first.'
+            return
+        }
+        # Guard: verify the signature file still exists (catches stale selection after rename/delete)
+        $assignHtmlPath = Get-SignatureHtmlPath -Name $script:selectedSigName
+        if (-not (Test-Path $assignHtmlPath)) {
+            Show-Error "Signature '$($script:selectedSigName)' no longer exists. Please select a signature from the left panel."
+            Set-SelectedSigLabel '(none selected)'
+            $script:selectedSigName = $null
             return
         }
         if ($script:selectedPills.Count -eq 0) {
