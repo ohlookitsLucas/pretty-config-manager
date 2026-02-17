@@ -171,7 +171,8 @@ function New-MockOutlookNS {
             -PermEntries (_DefaultAnon)
 
         return New-MockFolder 'Alice Johnson' $root "entry-$StoreID-root" $StoreID `
-            -SubFolders @($inbox, $sent, $calendar, $contacts, $drafts)
+            -SubFolders @($inbox, $sent, $calendar, $contacts, $drafts) `
+            -PermEntries (_DefaultAnon)
     }
 
     function New-SharedTree {
@@ -203,7 +204,8 @@ function New-MockOutlookNS {
             -PermEntries (_DefaultAnon)
 
         return New-MockFolder 'Shared Services' $root "entry-$StoreID-root" $StoreID `
-            -SubFolders @($inbox, $sent, $calendar, $contacts, $drafts)
+            -SubFolders @($inbox, $sent, $calendar, $contacts, $drafts) `
+            -PermEntries (_DefaultAnon)
     }
 
     function New-BobTree {
@@ -221,7 +223,8 @@ function New-MockOutlookNS {
         $drafts   = New-MockFolder 'Drafts'     "$root\Drafts"     "entry-$StoreID-drafts"   $StoreID -PermEntries (_DefaultAnon)
 
         return New-MockFolder 'Bob (Delegate)' $root "entry-$StoreID-root" $StoreID `
-            -SubFolders @($inbox, $sent, $calendar, $contacts, $drafts)
+            -SubFolders @($inbox, $sent, $calendar, $contacts, $drafts) `
+            -PermEntries (_DefaultAnon)
     }
 
     # ── Router: pick the right tree builder per account ───────────────────────
