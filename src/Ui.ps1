@@ -99,27 +99,16 @@ function Initialize-Ui {
 
     # -- Control references --
     # Signatures tab
-    $lbSignatures        = $Window.FindName('LbSignatures')
-    $script:lbSignaturesRef = $lbSignatures
     $btnNew              = $Window.FindName('BtnNewSignature')
-    $btnDuplicate        = $Window.FindName('BtnDuplicateSignature')
     $btnRename           = $Window.FindName('BtnRenameSignature')
     $btnDelete           = $Window.FindName('BtnDeleteSignature')
-    $btnRefreshSigs      = $Window.FindName('BtnRefreshSignatures')
-    $txtEditorTitle      = $Window.FindName('TxtEditorTitle')
-    $btnToggleEditor     = $Window.FindName('BtnToggleEditor')
-    $btnSave             = $Window.FindName('BtnSaveSignature')
     $previewBrowser      = $Window.FindName('PreviewBrowser')
     $script:previewBrowserRef = $previewBrowser
-    $panelPreview        = $Window.FindName('PanelPreview')
-    $txtHtmlEditor       = $Window.FindName('TxtHtmlEditor')
     $txtSignatureInfo    = $Window.FindName('TxtSignatureInfo')
-    $btnExport           = $Window.FindName('BtnExportSignature')
-    $btnImport           = $Window.FindName('BtnImportSignature')
-    $btnRefreshAssign    = $Window.FindName('BtnRefreshAssignments')
-    $panelRows           = $Window.FindName('PanelAssignmentRows')
-    $btnApply            = $Window.FindName('BtnApplyAssignments')
-    $txtOutlookWarning   = $Window.FindName('TxtOutlookWarning')
+    $panelInboxList      = $Window.FindName('PanelInboxList')
+    $panelCopyTargets    = $Window.FindName('PanelCopyTargets')
+    $txtSelectedSig      = $Window.FindName('TxtSelectedSig')
+    $btnAssignSig        = $Window.FindName('BtnAssignSig')
 
     # Permissions tab
     $tbMailboxSearch  = $Window.FindName('TbMailboxSearch')
@@ -134,6 +123,8 @@ function Initialize-Ui {
     $btnRemovePerm    = $Window.FindName('BtnRemovePerm')
     $txtPermStatus    = $Window.FindName('TxtPermStatus')
     $txtFolderHint    = $Window.FindName('TxtFolderHint')
+    $txtFoldersHint   = $Window.FindName('TxtFoldersHint')
+    $panelPermRight   = $Window.FindName('PanelPermRight')
     $btnRefreshPerm   = $Window.FindName('BtnRefreshPerm')
 
     # Extras tab
@@ -150,206 +141,241 @@ function Initialize-Ui {
     $txtStatus           = $Window.FindName('TxtStatus')
 
     # -- State --
-    $script:editorMode   = 'preview'   # 'preview' | 'html'
-    $script:currentSig   = $null
-    $script:assignRows   = @{}         # RegistryPath -> @{ NewCb; ReplyCb }
+    $script:currentSig        = $null
+    $script:selectedSigName   = $null    # sig name clicked for assign/preview
+    $script:selectedAccountKey= $null    # RegistryPath of selected account card
     $script:tabVisitCounts = @{ 0 = 0; 1 = 0 }   # index 0=Signatures, 1=Permissions
     $script:dlgResult      = $false
     $script:windowRef      = $Window
     $script:AppSettings    = Load-Settings
 
+    # Script-scope refs for controls used inside script:-scoped functions
+    $script:sigTxtSignatureInfo  = $txtSignatureInfo
+    $script:sigPanelInboxList    = $panelInboxList
+    $script:sigPanelCopyTargets  = $panelCopyTargets
+    $script:sigTxtSelectedSig    = $txtSelectedSig
+
     # -- Helpers --
 
-    function Set-Status([string]$msg) {
-        $txtStatus.Text = $msg
+    function script:Set-Status([string]$msg) {
+        $script:txtStatusRef.Text = $msg
     }
 
-    function Show-InputBox([string]$prompt, [string]$title, [string]$default = '') {
+    function script:Show-InputBox([string]$prompt, [string]$title, [string]$default = '') {
         Add-Type -AssemblyName Microsoft.VisualBasic
         return [Microsoft.VisualBasic.Interaction]::InputBox($prompt, $title, $default)
     }
 
-    function Confirm-Action([string]$msg, [string]$title = 'Confirm') {
+    function script:Confirm-Action([string]$msg, [string]$title = 'Confirm') {
         return [System.Windows.MessageBox]::Show($msg, $title,
             [System.Windows.MessageBoxButton]::YesNo,
             [System.Windows.MessageBoxImage]::Warning) -eq [System.Windows.MessageBoxResult]::Yes
     }
 
-    function Show-Error([string]$msg) {
+    function script:Show-Error([string]$msg) {
         [System.Windows.MessageBox]::Show($msg, 'Error',
             [System.Windows.MessageBoxButton]::OK,
             [System.Windows.MessageBoxImage]::Error) | Out-Null
     }
 
-    # Reusable: refresh signature list, preserving selection by name
-    $refreshSignatures = {
-        param([string]$SelectName = $null)
-        $lbSignatures.Items.Clear()
-        $statuses = Get-SignatureStatusList
-        foreach ($s in $statuses) {
-            $label = if ($s.Warning) { "[!] $($s.Name)" } else { $s.Name }
-            $item = New-Object System.Windows.Controls.ListBoxItem
-            $item.Content = $label
-            $item.Tag     = $s.Name
-            $item.ToolTip = if ($s.Warning) { "Missing files: $($s.Warning)" } else { $null }
-            $lbSignatures.Items.Add($item) | Out-Null
-        }
-        if ($SelectName) {
-            for ($i = 0; $i -lt $lbSignatures.Items.Count; $i++) {
-                if ($lbSignatures.Items[$i].Tag -eq $SelectName) {
-                    $lbSignatures.SelectedIndex = $i
-                    break
-                }
-            }
-        }
-        Set-Status "Loaded $($lbSignatures.Items.Count) signatures"
-    }
-
-    # Get clean sig name from selected ListBoxItem
-    function Get-SelectedSigName {
-        $sel = $lbSignatures.SelectedItem
-        if ($null -eq $sel) { return $null }
-        return $sel.Tag
-    }
-
-    # Load signature into the editor/preview area
-    function Load-Signature([string]$name) {
+    # Load a signature into the preview pane
+    function script:Load-SignaturePreview([string]$name) {
         $script:currentSig = $name
-        $txtEditorTitle.Text = $name
-        $btnSave.IsEnabled = $false
-
-        # Always switch back to preview mode when loading a new sig
-        if ($script:editorMode -eq 'html') {
-            $script:editorMode = 'preview'
-            $btnToggleEditor.Content = 'Edit HTML'
-            $panelPreview.Visibility = 'Visible'
-            $txtHtmlEditor.Visibility = 'Collapsed'
-        }
-
         $htmlPath = Get-SignatureHtmlPath -Name $name
         $status   = Get-SignatureStatus -Name $name
 
-        $previewBrowser.Visibility = 'Visible'
+        $script:previewBrowserRef.Visibility = 'Visible'
         if (Test-Path $htmlPath) {
             try {
-                $previewBrowser.Navigate((New-Object System.Uri($htmlPath)))
+                $script:previewBrowserRef.Navigate((New-Object System.Uri($htmlPath)))
                 $warn = if ($status.Warning) { " [!] $($status.Warning)" } else { '' }
-                $txtSignatureInfo.Text = "$name$warn"
+                $script:sigTxtSignatureInfo.Text = "$name$warn"
             } catch {
-                $txtSignatureInfo.Text = "Preview failed: $_"
+                $script:sigTxtSignatureInfo.Text = "Preview failed: $_"
             }
         } else {
             $bgHex2 = $script:Themes[$script:AppSettings.Theme].BgBrush
             $fgHex2 = $script:Themes[$script:AppSettings.Theme].TextSecondaryBrush
-            $previewBrowser.NavigateToString("<!DOCTYPE html><html style=`"background:$bgHex2`"><body style=`"background:$bgHex2;color:$fgHex2;font-family:Segoe UI;padding:16px`">No HTML file found.</body></html>")
-            $txtSignatureInfo.Text = "[!] Missing .htm file"
+            $script:previewBrowserRef.NavigateToString("<!DOCTYPE html><html style=`"background:$bgHex2`"><body style=`"background:$bgHex2;color:$fgHex2;font-family:Segoe UI;padding:16px`">No HTML file found.</body></html>")
+            $script:sigTxtSignatureInfo.Text = "[!] Missing .htm file"
         }
     }
 
-    # Build one assignment row in the right panel
-    function Add-AssignmentRow($assignment, [string[]]$sigNames) {
-        $row = New-Object System.Windows.Controls.Grid
-        $col0 = New-Object System.Windows.Controls.ColumnDefinition
-        $col0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
-        $col1 = New-Object System.Windows.Controls.ColumnDefinition
-        $col1.Width = [System.Windows.GridLength]::new(6)
-        $col2 = New-Object System.Windows.Controls.ColumnDefinition
-        $col2.Width = [System.Windows.GridLength]::new(90)
-        $col3 = New-Object System.Windows.Controls.ColumnDefinition
-        $col3.Width = [System.Windows.GridLength]::new(6)
-        $col4 = New-Object System.Windows.Controls.ColumnDefinition
-        $col4.Width = [System.Windows.GridLength]::new(90)
-        $row.ColumnDefinitions.Add($col0)
-        $row.ColumnDefinitions.Add($col1)
-        $row.ColumnDefinitions.Add($col2)
-        $row.ColumnDefinitions.Add($col3)
-        $row.ColumnDefinitions.Add($col4)
-        $row.Margin = [System.Windows.Thickness]::new(0, 0, 0, 6)
-
-        # Account label
-        $lblAccount = New-Object System.Windows.Controls.TextBlock
-        $lblAccount.Text = if ($assignment.SmtpAddress) { $assignment.SmtpAddress } else { $assignment.AccountName }
-        $lblAccount.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextPrimaryBrush')
-        $lblAccount.FontSize = 11
-        $lblAccount.VerticalAlignment = 'Center'
-        $lblAccount.TextTrimming = 'CharacterEllipsis'
-        $lblAccount.ToolTip = "$($assignment.AccountName)`n$($assignment.RegistryPath)"
-        [System.Windows.Controls.Grid]::SetColumn($lblAccount, 0)
-
-        # Helper: build a small sig picker ListBox
-        function New-SigPicker([string]$currentValue) {
-            $lb = New-Object System.Windows.Controls.ListBox
-            $lb.SetResourceReference([System.Windows.Controls.ListBox]::BackgroundProperty, 'BgBrush')
-            $lb.SetResourceReference([System.Windows.Controls.ListBox]::BorderBrushProperty, 'BorderBrush')
-            $lb.BorderThickness = [System.Windows.Thickness]::new(1)
-            $lb.Padding = [System.Windows.Thickness]::new(2)
-            $lb.Tag = $assignment.RegistryPath
-
-            $noneItem = New-Object System.Windows.Controls.ListBoxItem
-            $noneItem.Content = '(None)'
-            $noneItem.Tag = ''
-            $noneItem.Padding = [System.Windows.Thickness]::new(4, 3, 4, 3)
-            $noneItem.FontSize = 11
-            $lb.Items.Add($noneItem) | Out-Null
-
-            foreach ($s in $sigNames) {
-                $item = New-Object System.Windows.Controls.ListBoxItem
-                $item.Content = $s
-                $item.Tag = $s
-                $item.Padding = [System.Windows.Thickness]::new(4, 3, 4, 3)
-                $item.FontSize = 11
-                if ($s -eq $currentValue -and -not (Test-Path (Get-SignatureHtmlPath -Name $s))) {
-                    $item.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom('#E06F6F')
-                    $item.ToolTip = 'Signature file not found on disk'
+    # Build a map of sig name -> colour based on file content hash
+    function script:Build-SigColourMap {
+        $palette = @('#D96C6C','#4FA89B','#C49A2A','#7B68C8','#4A8CC1','#6B9E3F','#B85C8A')
+        $hashToColour = @{}
+        $nameToColour = @{}
+        $idx = 0
+        foreach ($name in (Get-Signatures)) {
+            $path = Get-SignatureHtmlPath -Name $name
+            if (Test-Path $path) {
+                $hash = (Get-FileHash $path -Algorithm MD5).Hash
+                if (-not $hashToColour.ContainsKey($hash)) {
+                    $hashToColour[$hash] = $palette[$idx % $palette.Count]
+                    $idx++
                 }
-                $lb.Items.Add($item) | Out-Null
+                $nameToColour[$name] = $hashToColour[$hash]
             }
-
-            for ($i = 0; $i -lt $lb.Items.Count; $i++) {
-                if ($lb.Items[$i].Tag -eq $currentValue) { $lb.SelectedIndex = $i; break }
-            }
-            if ($lb.SelectedIndex -lt 0) { $lb.SelectedIndex = 0 }
-            return $lb
         }
-
-        $cbNew   = New-SigPicker $assignment.NewSignature
-        $cbReply = New-SigPicker $assignment.ReplySignature
-        [System.Windows.Controls.Grid]::SetColumn($cbNew,   2)
-        [System.Windows.Controls.Grid]::SetColumn($cbReply, 4)
-
-        $row.Children.Add($lblAccount) | Out-Null
-        $row.Children.Add($cbNew)      | Out-Null
-        $row.Children.Add($cbReply)    | Out-Null
-        $panelRows.Children.Add($row)  | Out-Null
-
-        $script:assignRows[$assignment.RegistryPath] = @{ NewCb = $cbNew; ReplyCb = $cbReply }
+        return $nameToColour
     }
 
-    # Refresh the assignment panel
-    $refreshAssignments = {
-        $panelRows.Children.Clear()
-        $script:assignRows = @{}
-        $sigNames = Get-Signatures
+    # Select an account card visually (highlight border) and pre-tick its checkbox
+    function script:Select-AccountCard($card, [string]$regPath) {
+        # Deselect previous
+        if ($null -ne $script:selectedAccountKey) {
+            foreach ($child in $script:sigPanelInboxList.Children) {
+                if ($child.Tag -eq $script:selectedAccountKey) {
+                    $child.BorderThickness = [System.Windows.Thickness]::new(1)
+                    $child.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, 'BorderBrush')
+                    break
+                }
+            }
+        }
+        $script:selectedAccountKey = $regPath
+        $card.BorderThickness = [System.Windows.Thickness]::new(2)
+        $card.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, 'AccentBrush')
+
+        # Pre-tick the matching checkbox in the bottom bar
+        foreach ($cb in $script:sigPanelCopyTargets.Children) {
+            if ($cb -is [System.Windows.Controls.CheckBox]) {
+                $cb.IsChecked = ($cb.Tag -eq $regPath)
+            }
+        }
+    }
+
+    # Refresh the inbox list and bottom-bar checkboxes
+    $script:refreshInboxList = {
+        $colourMap   = Build-SigColourMap
         $assignments = Get-SignatureAssignments
+
+        $script:sigPanelInboxList.Children.Clear()
+        $script:sigPanelCopyTargets.Children.Clear()
+
         if ($assignments.Count -eq 0) {
             $lbl = New-Object System.Windows.Controls.TextBlock
             $lbl.Text = 'No Outlook accounts found.'
             $lbl.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
             $lbl.FontSize = 12
-            $lbl.Margin = [System.Windows.Thickness]::new(4, 8, 0, 0)
-            $panelRows.Children.Add($lbl) | Out-Null
-        } else {
-            foreach ($a in $assignments) { Add-AssignmentRow $a $sigNames }
+            $lbl.Margin = [System.Windows.Thickness]::new(0, 8, 0, 0)
+            $script:sigPanelInboxList.Children.Add($lbl) | Out-Null
+            Set-Status 'No Outlook accounts found'
+            return
         }
-        $txtOutlookWarning.Visibility = if (Test-OutlookRunning) { 'Visible' } else { 'Collapsed' }
+
+        foreach ($a in $assignments) {
+            $displayName = if ($a.SmtpAddress) { $a.SmtpAddress } else { $a.AccountName }
+            $regPath     = $a.RegistryPath
+
+            # ── Account card ──
+            $card = New-Object System.Windows.Controls.Border
+            $card.CornerRadius    = [System.Windows.CornerRadius]::new(8)
+            $card.BorderThickness = [System.Windows.Thickness]::new(1)
+            $card.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty,   'SurfaceBrush')
+            $card.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty,  'BorderBrush')
+            $card.Padding = [System.Windows.Thickness]::new(10, 8, 10, 8)
+            $card.Margin  = [System.Windows.Thickness]::new(0, 0, 0, 6)
+            $card.Cursor  = [System.Windows.Input.Cursors]::Hand
+            $card.Tag     = $regPath
+
+            $sp = New-Object System.Windows.Controls.StackPanel
+
+            # Account name
+            $lblName = New-Object System.Windows.Controls.TextBlock
+            $lblName.Text       = $displayName
+            $lblName.FontSize   = 12
+            $lblName.FontWeight = 'SemiBold'
+            $lblName.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextPrimaryBrush')
+            $lblName.TextTrimming = 'CharacterEllipsis'
+            $lblName.ToolTip = "$($a.AccountName)`n$regPath"
+            $sp.Children.Add($lblName) | Out-Null
+
+            # Build New-mail sig label
+            $lblNew = New-Object System.Windows.Controls.TextBlock
+            $lblNew.FontSize = 11
+            $lblNew.Margin   = [System.Windows.Thickness]::new(0, 2, 0, 0)
+            $lblNew.Cursor   = [System.Windows.Input.Cursors]::Hand
+            if ([string]::IsNullOrEmpty($a.NewSignature)) {
+                $lblNew.Text = 'New: (None)'
+                $lblNew.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
+            } else {
+                $cNew = if ($colourMap.ContainsKey($a.NewSignature)) { $colourMap[$a.NewSignature] } else { '#9898A8' }
+                $lblNew.Text       = "New: $($a.NewSignature)"
+                $lblNew.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom($cNew)
+                $lblNew.Tag        = $a.NewSignature
+            }
+
+            # Build Reply sig label
+            $lblReply = New-Object System.Windows.Controls.TextBlock
+            $lblReply.FontSize = 11
+            $lblReply.Margin   = [System.Windows.Thickness]::new(0, 2, 0, 0)
+            $lblReply.Cursor   = [System.Windows.Input.Cursors]::Hand
+            if ([string]::IsNullOrEmpty($a.ReplySignature)) {
+                $lblReply.Text = 'Reply: (None)'
+                $lblReply.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
+            } else {
+                $cRep = if ($colourMap.ContainsKey($a.ReplySignature)) { $colourMap[$a.ReplySignature] } else { '#9898A8' }
+                $lblReply.Text       = "Reply: $($a.ReplySignature)"
+                $lblReply.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom($cRep)
+                $lblReply.Tag        = $a.ReplySignature
+            }
+            $sp.Children.Add($lblNew)   | Out-Null
+            $sp.Children.Add($lblReply) | Out-Null
+
+            $card.Child = $sp
+            $script:sigPanelInboxList.Children.Add($card) | Out-Null
+
+            # Card click → select card, preview New sig
+            $cardRef    = $card
+            $regPathRef = $regPath
+            $newSigRef  = $a.NewSignature
+            $card.add_MouseLeftButtonUp(({
+                param($s2, $e2)
+                Select-AccountCard $cardRef $regPathRef
+                if (-not [string]::IsNullOrEmpty($newSigRef)) {
+                    $script:selectedSigName = $newSigRef
+                    $script:sigTxtSelectedSig.Text = $newSigRef
+                    Load-SignaturePreview $newSigRef
+                }
+            }).GetNewClosure())
+
+            # Sig-name label click → preview that specific sig + set as selected
+            foreach ($child in @($lblNew, $lblReply)) {
+                if (-not [string]::IsNullOrEmpty($child.Tag)) {
+                    $sigRef   = $child.Tag
+                    $cardRef2 = $card
+                    $regRef2  = $regPath
+                    $child.add_MouseLeftButtonUp(({
+                        param($s3, $e3)
+                        $e3.Handled = $true
+                        Select-AccountCard $cardRef2 $regRef2
+                        $script:selectedSigName = $sigRef
+                        $script:sigTxtSelectedSig.Text = $sigRef
+                        Load-SignaturePreview $sigRef
+                    }).GetNewClosure())
+                }
+            }
+
+            # ── Bottom-bar checkbox ──
+            $cb = New-Object System.Windows.Controls.CheckBox
+            $cb.Content  = $displayName
+            $cb.Tag      = $regPath
+            $cb.FontSize = 11
+            $cb.Margin   = [System.Windows.Thickness]::new(0, 0, 12, 0)
+            $cb.VerticalAlignment = 'Center'
+            $script:sigPanelCopyTargets.Children.Add($cb) | Out-Null
+        }
+
+        Set-Status "Loaded $($assignments.Count) mailbox(es)"
     }
 
     # Reusable: refresh mailbox list (Permissions tab)
     $script:permAllAccounts = @()
     $refreshPermMailboxes = {
         $script:permAllAccounts = Get-SignedInAccounts
-        $lbMailboxes.ItemsSource = $null
-        $lbMailboxes.ItemsSource = $script:permAllAccounts
+        $script:permLbMailboxes.ItemsSource = $null
+        $script:permLbMailboxes.ItemsSource = $script:permAllAccounts
     }
 
     # Shared state for permissions tab
@@ -360,7 +386,7 @@ function Initialize-Ui {
     # (ClipToBounds cannot clip HwndHost children; CSS overflow:hidden is the reliable fix)
     $previewBrowser.add_LoadCompleted({
         try {
-            $doc = $previewBrowser.Document
+            $doc = $script:previewBrowserRef.Document
             if ($null -ne $doc) {
                 $body = $doc.Body
                 if ($null -ne $body) {
@@ -388,7 +414,7 @@ function Initialize-Ui {
         if ($e.OriginalSource -ne $script:mainTabsRef) { return }
         if ($script:mainTabsRef.SelectedIndex -eq 0) {
             $script:statusBarRef.Visibility = 'Visible'
-            $script:txtStatusRef.Text = "Loaded $($script:lbSignaturesRef.Items.Count) signatures"
+            $script:txtStatusRef.Text = "Loaded $($script:sigPanelInboxList.Children.Count) mailbox(es)"
         } else {
             $script:statusBarRef.Visibility = 'Collapsed'
         }
@@ -629,9 +655,8 @@ function Initialize-Ui {
 
     $previewBrowser.Visibility = 'Collapsed'
 
-    try { & $refreshSignatures } catch { Set-Status "Error loading signatures: $_" }
-    try { & $refreshAssignments } catch { Set-Status "Error loading assignments: $_" }
-    try { & $refreshPermMailboxes } catch { Set-Status "Mailboxes unavailable: $_" }
+    try { & $script:refreshInboxList } catch { Set-Status "Error loading mailboxes: $_" }
+    # Note: refreshPermMailboxes is called after script-scope perm refs are stored (below)
 
     # -- Settings: apply saved theme and pre-select controls --
 
@@ -685,13 +710,6 @@ function Initialize-Ui {
         Save-Settings -Settings $script:AppSettings
     })
 
-    # -- Signature list selection --
-
-    $lbSignatures.add_SelectionChanged({
-        $name = Get-SelectedSigName
-        if ($null -ne $name) { Load-Signature $name }
-    })
-
     # -- New --
 
     $btnNew.Add_Click({
@@ -699,38 +717,23 @@ function Initialize-Ui {
         if ([string]::IsNullOrWhiteSpace($name)) { return }
         try {
             New-Signature -Name $name
-            & $refreshSignatures -SelectName $name
-            & $refreshAssignments
+            & $script:refreshInboxList
             Set-Status "Created '$name'"
         } catch { Show-Error "$_"; Set-Status "Create failed" }
-    })
-
-    # -- Duplicate --
-
-    $btnDuplicate.Add_Click({
-        $src = Get-SelectedSigName
-        if ($null -eq $src) { Show-Error 'Select a signature first.'; return }
-        $target = Show-InputBox "Enter a name for the copy of '$src':" 'Duplicate Signature' "$src - Copy"
-        if ([string]::IsNullOrWhiteSpace($target)) { return }
-        try {
-            Copy-Signature -SourceName $src -TargetName $target
-            & $refreshSignatures -SelectName $target
-            & $refreshAssignments
-            Set-Status "Duplicated '$src' -> '$target'"
-        } catch { Show-Error "$_"; Set-Status "Duplicate failed" }
     })
 
     # -- Rename --
 
     $btnRename.Add_Click({
-        $old = Get-SelectedSigName
-        if ($null -eq $old) { Show-Error 'Select a signature first.'; return }
+        $old = $script:selectedSigName
+        if ([string]::IsNullOrWhiteSpace($old)) { Show-Error 'Click a signature name in the left panel first.'; return }
         $new = Show-InputBox "Rename '$old' to:" 'Rename Signature' $old
         if ([string]::IsNullOrWhiteSpace($new) -or $new -eq $old) { return }
         try {
             Rename-Signature -OldName $old -NewName $new
-            & $refreshSignatures -SelectName $new
-            & $refreshAssignments
+            $script:selectedSigName = $new
+            $script:sigTxtSelectedSig.Text = $new
+            & $script:refreshInboxList
             Set-Status "Renamed '$old' -> '$new'"
         } catch { Show-Error "$_"; Set-Status "Rename failed" }
     })
@@ -738,137 +741,47 @@ function Initialize-Ui {
     # -- Delete --
 
     $btnDelete.Add_Click({
-        $name = Get-SelectedSigName
-        if ($null -eq $name) { Show-Error 'Select a signature first.'; return }
+        $name = $script:selectedSigName
+        if ([string]::IsNullOrWhiteSpace($name)) { Show-Error 'Click a signature name in the left panel first.'; return }
         if (-not (Confirm-Action "Delete signature '$name'? This cannot be undone." 'Delete Signature')) { return }
         try {
             Remove-Signature -Name $name
-            $script:currentSig = $null
-            $txtEditorTitle.Text = 'Select a signature'
-            $txtSignatureInfo.Text = 'Select a signature to edit or preview.'
-            $previewBrowser.Visibility = 'Collapsed'
-            & $refreshSignatures
-            & $refreshAssignments
+            $script:currentSig      = $null
+            $script:selectedSigName = $null
+            $script:sigTxtSelectedSig.Text = '(none selected)'
+            $script:sigTxtSignatureInfo.Text = 'Select a mailbox or signature to preview.'
+            $script:previewBrowserRef.Visibility = 'Collapsed'
+            & $script:refreshInboxList
             Set-Status "Deleted '$name'"
         } catch { Show-Error "$_"; Set-Status "Delete failed" }
     })
 
-    # -- Refresh signatures --
+    # -- Assign to checked mailboxes --
 
-    $btnRefreshSigs.Add_Click({
-        $cur = Get-SelectedSigName
-        & $refreshSignatures -SelectName $cur
-    })
-
-    # -- Toggle WYSIWYG / HTML editor --
-
-    $btnToggleEditor.Add_Click({
-        if ($null -eq $script:currentSig) { Show-Error 'Select a signature first.'; return }
-
-        if ($script:editorMode -eq 'preview') {
-            $htmlPath = Get-SignatureHtmlPath -Name $script:currentSig
-            if (Test-Path $htmlPath) {
-                $txtHtmlEditor.Text = [System.IO.File]::ReadAllText($htmlPath, [System.Text.Encoding]::UTF8)
-            } else {
-                $txtHtmlEditor.Text = ''
-            }
-            $panelPreview.Visibility  = 'Collapsed'
-            $txtHtmlEditor.Visibility = 'Visible'
-            $btnToggleEditor.Content  = 'Preview'
-            $btnSave.IsEnabled        = $true
-            $script:editorMode        = 'html'
-        } else {
-            $panelPreview.Visibility  = 'Visible'
-            $txtHtmlEditor.Visibility = 'Collapsed'
-            $btnToggleEditor.Content  = 'Edit HTML'
-            $btnSave.IsEnabled        = $false
-            $script:editorMode        = 'preview'
-            Load-Signature $script:currentSig
+    $btnAssignSig.Add_Click({
+        if ([string]::IsNullOrWhiteSpace($script:selectedSigName)) {
+            Show-Error 'Click a signature name in the left panel first.'
+            return
         }
-    })
-
-    # -- Save HTML --
-
-    $btnSave.Add_Click({
-        if ($null -eq $script:currentSig) { return }
+        $ticked = @($script:sigPanelCopyTargets.Children |
+                    Where-Object { $_ -is [System.Windows.Controls.CheckBox] -and $_.IsChecked })
+        if ($ticked.Count -eq 0) { Show-Error 'Tick at least one mailbox below.'; return }
         try {
-            Save-SignatureHtml -Name $script:currentSig -HtmlContent $txtHtmlEditor.Text
-            Set-Status "Saved '$($script:currentSig)'"
-            $panelPreview.Visibility  = 'Visible'
-            $txtHtmlEditor.Visibility = 'Collapsed'
-            $btnToggleEditor.Content  = 'Edit HTML'
-            $btnSave.IsEnabled        = $false
-            $script:editorMode        = 'preview'
-            Load-Signature $script:currentSig
-        } catch { Show-Error "$_"; Set-Status "Save failed" }
-    })
-
-    # -- Export --
-
-    $btnExport.Add_Click({
-        $name = Get-SelectedSigName
-        if ($null -eq $name) { Show-Error 'Select a signature first.'; return }
-        Add-Type -AssemblyName System.Windows.Forms
-        $sfd = New-Object System.Windows.Forms.SaveFileDialog
-        $sfd.FileName  = "$name.zip"
-        $sfd.Filter    = 'Zip files (*.zip)|*.zip'
-        $sfd.Title     = "Export '$name'"
-        if ($sfd.ShowDialog() -eq 'OK') {
-            try {
-                Export-Signature -Name $name -Destination $sfd.FileName
-                Set-Status "Exported '$name' to $($sfd.FileName)"
-            } catch { Show-Error "$_"; Set-Status "Export failed" }
-        }
-    })
-
-    # -- Import --
-
-    $btnImport.Add_Click({
-        Add-Type -AssemblyName System.Windows.Forms
-        $ofd = New-Object System.Windows.Forms.OpenFileDialog
-        $ofd.Filter = 'Zip files (*.zip)|*.zip|All files (*.*)|*.*'
-        $ofd.Title  = 'Import Signature'
-        if ($ofd.ShowDialog() -eq 'OK') {
-            try {
-                Import-Signature -ZipPath $ofd.FileName
-                & $refreshSignatures
-                & $refreshAssignments
-                Set-Status "Imported from $($ofd.FileName)"
-            } catch { Show-Error "$_"; Set-Status "Import failed" }
-        }
-    })
-
-    # -- Assignment: Refresh --
-
-    $btnRefreshAssign.Add_Click({
-        try { & $refreshAssignments; Set-Status "Refreshed assignments" }
-        catch { Show-Error "$_"; Set-Status "Error refreshing assignments" }
-    })
-
-    # -- Assignment: Apply --
-
-    $btnApply.Add_Click({
-        if ($script:assignRows.Count -eq 0) { return }
-        $outlookWasRunning = Test-OutlookRunning
-        try {
-            foreach ($regPath in $script:assignRows.Keys) {
-                $row    = $script:assignRows[$regPath]
-                $newSig = if ($row.NewCb.SelectedItem)   { $row.NewCb.SelectedItem.Tag }   else { '' }
-                $repSig = if ($row.ReplyCb.SelectedItem) { $row.ReplyCb.SelectedItem.Tag } else { '' }
-                Set-SignatureAssignment -RegistryPath $regPath -NewSignature $newSig -ReplySignature $repSig
+            foreach ($cb in $ticked) {
+                Set-SignatureAssignment -RegistryPath $cb.Tag `
+                    -NewSignature $script:selectedSigName `
+                    -ReplySignature $script:selectedSigName
             }
-            Set-Status "Assignments applied to registry"
-            if ($outlookWasRunning) {
+            & $script:refreshInboxList
+            $outlookRunning = Test-OutlookRunning
+            Set-Status "Assigned '$($script:selectedSigName)' to $($ticked.Count) mailbox(es)"
+            if ($outlookRunning) {
                 [System.Windows.MessageBox]::Show(
-                    "Assignments written.`n`nOutlook is currently running - restart it for changes to take effect.",
-                    'Applied', [System.Windows.MessageBoxButton]::OK,
-                    [System.Windows.MessageBoxImage]::Information) | Out-Null
-            } else {
-                [System.Windows.MessageBox]::Show("Assignments applied successfully.", 'Applied',
-                    [System.Windows.MessageBoxButton]::OK,
+                    "Assignment saved.`n`nOutlook is currently running - restart it for changes to take effect.",
+                    'Assigned', [System.Windows.MessageBoxButton]::OK,
                     [System.Windows.MessageBoxImage]::Information) | Out-Null
             }
-        } catch { Show-Error "$_"; Set-Status "Apply failed" }
+        } catch { Show-Error "$_"; Set-Status "Assign failed" }
     })
 
     # ── Permissions tab ─────────────────────────────────────────────────────────
@@ -877,26 +790,38 @@ function Initialize-Ui {
     foreach ($lvl in (Get-PermissionLevels)) { $cbPermLevel.Items.Add($lvl) | Out-Null }
     $cbPermLevel.SelectedIndex = 1  # default: "Can view"
 
-    # Helper: set inline status with optional colour
-    function Set-PermStatus {
+    # Store ALL perm controls at script scope so WPF event handler closures can reach them
+    $script:permTxtStatus    = $txtPermStatus
+    $script:permDgPerms      = $dgCurrentPerms
+    $script:permPanelRight   = $panelPermRight
+    $script:permLbMailboxes  = $lbMailboxes
+    $script:permLbFolders    = $lbFolders
+    $script:permTxtFolderHint  = $txtFolderHint
+    $script:permTxtFoldersHint = $txtFoldersHint
+    $script:permCbPermLevel       = $cbPermLevel
+    $script:permTbMailboxSearch   = $tbMailboxSearch
+
+    # Initial mailbox load now that all script-scope refs are set
+    try { & $refreshPermMailboxes } catch { Set-Status "Mailboxes unavailable: $_" }
+
+    function script:Set-PermStatus {
         param([string]$Msg, [string]$Colour = '')
-        $txtPermStatus.Text = $Msg
+        $script:permTxtStatus.Text = $Msg
         if ($Colour) {
-            $txtPermStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString($Colour)
+            $script:permTxtStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString($Colour)
         } else {
-            # Use theme secondary colour
-            $txtPermStatus.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
+            $script:permTxtStatus.SetResourceReference(
+                [System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
         }
     }
 
-    # Helper: reload the permissions DataGrid for the currently selected folder
-    function Refresh-PermGrid {
+    function script:Refresh-PermGrid {
         if ($null -eq $script:permSelectedFolder) { return }
         try {
             $rows = Get-FolderPermissions -EntryID $script:permSelectedFolder.EntryID `
                                           -StoreID  $script:permSelectedFolder.StoreID
-            $dgCurrentPerms.ItemsSource = $null
-            $dgCurrentPerms.ItemsSource = $rows
+            $script:permDgPerms.ItemsSource = $null
+            $script:permDgPerms.ItemsSource = $rows
         } catch {
             Set-PermStatus "Could not read permissions: $_" '#E74C3C'
         }
@@ -904,42 +829,77 @@ function Initialize-Ui {
 
     # ── Mailbox search filter ────────────────────────────────────────────────
     $tbMailboxSearch.Add_TextChanged({
-        $q = $tbMailboxSearch.Text.Trim()
+        $q = $script:permTbMailboxSearch.Text.Trim()
         if ([string]::IsNullOrEmpty($q)) {
-            $lbMailboxes.ItemsSource = $script:permAllAccounts
+            $script:permLbMailboxes.ItemsSource = $script:permAllAccounts
         } else {
-            $lbMailboxes.ItemsSource = @($script:permAllAccounts | Where-Object {
+            $script:permLbMailboxes.ItemsSource = @($script:permAllAccounts | Where-Object {
                 $_.Name -like "*$q*" -or $_.SmtpAddress -like "*$q*"
             })
         }
     })
 
+    # Script-scope helpers called from event handlers
+    function script:Set-PermRightEnabled {
+        param([bool]$Enabled)
+        $script:permPanelRight.IsEnabled = $Enabled
+        $script:permPanelRight.Opacity   = if ($Enabled) { 1.0 } else { 0.45 }
+    }
+
+    function script:Get-FolderIcon {
+        param([string]$Name, [int]$Depth)
+        if ($Depth -eq 0) { return '[M]' }
+        switch -Wildcard ($Name) {
+            'Inbox'    { return '[I]' }
+            'Sent*'    { return '[S]' }
+            'Deleted*' { return '[X]' }
+            'Drafts'   { return '[D]' }
+            'Calendar' { return '[C]' }
+            'Contacts' { return '[P]' }
+            'Tasks'    { return '[T]' }
+            'Junk*'    { return '[J]' }
+            'Archive*' { return '[A]' }
+            'Outbox'   { return '[O]' }
+            default    { if ($Depth -eq 1) { return '[F]' } else { return '  [F]' } }
+        }
+    }
+
+    # Initial state: right panel dimmed
+    Set-PermRightEnabled $false
+
     # ── Mailbox selection → populate folder list ─────────────────────────────
     $lbMailboxes.Add_SelectionChanged({
-        $sel = $lbMailboxes.SelectedItem
+        $sel = $script:permLbMailboxes.SelectedItem
         if ($null -eq $sel) { return }
-        $lbFolders.ItemsSource   = $null
-        $dgCurrentPerms.ItemsSource = $null
-        $script:permSelectedFolder  = $null
-        $txtFolderHint.Visibility   = 'Visible'
+        $script:permLbFolders.ItemsSource   = $null
+        $script:permDgPerms.ItemsSource     = $null
+        $script:permSelectedFolder          = $null
+        $script:permTxtFolderHint.Visibility  = 'Visible'
+        $script:permTxtFoldersHint.Text       = 'Loading folders...'
+        Set-PermRightEnabled $false
         Set-PermStatus ''
         try {
             $raw = Get-MailboxFolders -SmtpAddress $sel.SmtpAddress
-            # Build display items with indentation prefix for depth
-            $items = $raw | ForEach-Object {
-                $indent = if ($_.Depth -gt 0) { ('    ' * ($_.Depth - 1)) + '  └─ ' } else { '' }
-                [PSCustomObject]@{
-                    Name        = $_.Name
-                    Indent      = $indent
-                    FolderPath  = $_.FolderPath
-                    EntryID     = $_.EntryID
-                    StoreID     = $_.StoreID
-                    Depth       = $_.Depth
+            if ($raw.Count -eq 0) {
+                $script:permTxtFoldersHint.Text = 'No folders found'
+            } else {
+                $script:permTxtFoldersHint.Text = ''
+                $items = $raw | ForEach-Object {
+                    [PSCustomObject]@{
+                        Name       = $_.Name
+                        Icon       = Get-FolderIcon -Name $_.Name -Depth $_.Depth
+                        FolderPath = $_.FolderPath
+                        EntryID    = $_.EntryID
+                        StoreID    = $_.StoreID
+                        Depth      = $_.Depth
+                        IndentPad  = [System.Windows.Thickness]::new([int]($_.Depth * 12), 1, 4, 1)
+                    }
                 }
+                $script:permLbFolders.ItemsSource = $items
             }
-            $lbFolders.ItemsSource = $items
             Set-Status "Loaded folders for $($sel.Name)"
         } catch {
+            $script:permTxtFoldersHint.Text = 'Could not load folders'
             Set-PermStatus "Could not load folders: $_" '#E74C3C'
             Set-Status "Error loading folders"
         }
@@ -947,70 +907,81 @@ function Initialize-Ui {
 
     # ── Folder selection → show permissions ──────────────────────────────────
     $lbFolders.Add_SelectionChanged({
-        $sel = $lbFolders.SelectedItem
+        $sel = $script:permLbFolders.SelectedItem
         if ($null -eq $sel) { return }
-        $script:permSelectedFolder = $sel
-        $txtFolderHint.Visibility  = 'Collapsed'
-        $dgCurrentPerms.ItemsSource = $null
+        $script:permSelectedFolder          = $sel
+        $script:permTxtFolderHint.Visibility  = 'Collapsed'
+        $script:permDgPerms.ItemsSource     = $null
+        $script:permRemovePending           = $null
         Set-PermStatus ''
+        Set-PermRightEnabled $true
         try {
             Refresh-PermGrid
-            Set-Status "Showing permissions for: $($sel.Name)"
+            Set-Status "Permissions for: $($sel.Name)"
         } catch {
             Set-PermStatus "Error reading permissions: $_" '#E74C3C'
         }
     })
 
     # ── AD search: debounced via DispatcherTimer ─────────────────────────────
-    # Tick handler is defined as a named scriptblock so the parser doesn't
-    # struggle with deeply-nested closures inside event handlers.
-    $script:permAdTickHandler = $null
+    # The timer tick and the search logic are broken out as named functions
+    # so the parser never sees a scriptblock literal inside an event handler.
+    $script:permAdLastQuery = ''
+    $script:permAdTimer     = $null
 
-    $txtAddUser.Add_TextChanged({
-        $q = $txtAddUser.Text.Trim()
+    # Store controls needed by AD search functions at script scope
+    $script:permLbAdResults = $lbAdResults
+    $script:permPopAddUser  = $popAddUser
+    $script:permTxtAddUser  = $txtAddUser
+
+    function script:Invoke-AdSearchTick {
+        if ($null -ne $script:permAdTimer) { $script:permAdTimer.Stop() }
+        $script:permAdTimer = $null
+        try {
+            $hits = Search-ADUsers -Query $script:permAdLastQuery
+            $script:permLbAdResults.ItemsSource = $null
+            if ($hits.Count -gt 0) {
+                $script:permLbAdResults.ItemsSource = $hits
+                $script:permPopAddUser.IsOpen = $true
+            } else {
+                $script:permPopAddUser.IsOpen = $false
+                Set-PermStatus "No AD matches - type an email address directly." ''
+            }
+        } catch {
+            $script:permPopAddUser.IsOpen = $false
+        }
+    }
+
+    function script:Start-AdSearchDebounce {
+        param([string]$Query)
         if ($null -ne $script:permAdTimer) {
             $script:permAdTimer.Stop()
             $script:permAdTimer = $null
         }
-        if ($q.Length -lt 2) {
-            $popAddUser.IsOpen = $false
+        if ($Query.Length -lt 2) {
+            $script:permPopAddUser.IsOpen = $false
             return
         }
-        # Build a fresh tick handler that closes over the current query string
-        $script:permAdTickHandler = {
-            $script:permAdTimer.Stop()
-            $script:permAdTimer = $null
-            try {
-                $hits = Search-ADUsers -Query $script:permAdLastQuery
-                $lbAdResults.ItemsSource = $null
-                if ($hits.Count -gt 0) {
-                    $lbAdResults.ItemsSource = $hits
-                    $popAddUser.IsOpen = $true
-                } else {
-                    $popAddUser.IsOpen = $false
-                    Set-PermStatus "No AD matches — you can still type an email address directly." ''
-                }
-            } catch {
-                $popAddUser.IsOpen = $false
-            }
-        }
-        $script:permAdLastQuery = $q
-        $timer = New-Object System.Windows.Threading.DispatcherTimer
-        $timer.Interval = [System.TimeSpan]::FromMilliseconds(350)
-        $timer.Add_Tick($script:permAdTickHandler)
-        $script:permAdTimer = $timer
-        $timer.Start()
+        $script:permAdLastQuery = $Query
+        $t = New-Object System.Windows.Threading.DispatcherTimer
+        $t.Interval = [System.TimeSpan]::FromMilliseconds(350)
+        $t.Add_Tick({ Invoke-AdSearchTick })
+        $script:permAdTimer = $t
+        $t.Start()
+    }
+
+    $txtAddUser.Add_TextChanged({
+        Start-AdSearchDebounce -Query $script:permTxtAddUser.Text.Trim()
     })
 
     # ── AD result selected → fill search box, close popup ───────────────────
     $lbAdResults.Add_SelectionChanged({
-        $hit = $lbAdResults.SelectedItem
+        $hit = $script:permLbAdResults.SelectedItem
         if ($null -eq $hit) { return }
-        # Prefer email, fall back to display name
         $value = if ($hit.Mail) { $hit.Mail } else { $hit.DisplayName }
-        $txtAddUser.Text     = $value
-        $txtAddUser.CaretIndex = $value.Length
-        $popAddUser.IsOpen   = $false
+        $script:permTxtAddUser.Text      = $value
+        $script:permTxtAddUser.CaretIndex = $value.Length
+        $script:permPopAddUser.IsOpen    = $false
         Set-PermStatus ''
     })
 
@@ -1019,8 +990,8 @@ function Initialize-Ui {
         if ($null -eq $script:permSelectedFolder) {
             Set-PermStatus 'Please select a folder first.' '#E74C3C'; return
         }
-        $user  = $txtAddUser.Text.Trim()
-        $level = $cbPermLevel.SelectedItem
+        $user  = $script:permTxtAddUser.Text.Trim()
+        $level = $script:permCbPermLevel.SelectedItem
         if ([string]::IsNullOrWhiteSpace($user)) {
             Set-PermStatus 'Please enter a name or email address.' '#E74C3C'; return
         }
@@ -1033,7 +1004,7 @@ function Initialize-Ui {
                                  -User    $user `
                                  -Level   $level
             Refresh-PermGrid
-            Set-PermStatus "Saved: $user — $level" '#27AE60'
+            Set-PermStatus "Saved: $user - $level" '#27AE60'
             Set-Status "Permission saved for $user"
         } catch {
             Set-PermStatus "Could not save: $_" '#E74C3C'
@@ -1048,14 +1019,14 @@ function Initialize-Ui {
             $script:permRemovePending = $null
             Set-PermStatus 'Please select a folder first.' '#E74C3C'; return
         }
-        $row = $dgCurrentPerms.SelectedItem
+        $row = $script:permDgPerms.SelectedItem
         if ($null -eq $row) {
             $script:permRemovePending = $null
             Set-PermStatus 'Select a person in the list above to remove them.' '#E74C3C'; return
         }
         if ($row.User -eq 'Default' -or $row.User -eq 'Anonymous') {
             $script:permRemovePending = $null
-            Set-PermStatus "The '$($row.User)' entry cannot be removed — you can change its level instead." '#E74C3C'
+            Set-PermStatus "The '$($row.User)' entry cannot be removed - change its level instead." '#E74C3C'
             return
         }
         if ($script:permRemovePending -ne $row.User) {
@@ -1085,10 +1056,12 @@ function Initialize-Ui {
     $btnRefreshPerm.Add_Click({
         try {
             & $refreshPermMailboxes
-            $lbFolders.ItemsSource      = $null
-            $dgCurrentPerms.ItemsSource = $null
-            $script:permSelectedFolder  = $null
-            $txtFolderHint.Visibility   = 'Visible'
+            $script:permLbFolders.ItemsSource      = $null
+            $script:permDgPerms.ItemsSource        = $null
+            $script:permSelectedFolder             = $null
+            $script:permTxtFolderHint.Visibility   = 'Visible'
+            $script:permTxtFoldersHint.Text        = 'Select a mailbox to see its folders'
+            Set-PermRightEnabled $false
             Set-PermStatus ''
             Set-Status "Mailboxes refreshed"
         } catch {
