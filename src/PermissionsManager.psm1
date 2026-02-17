@@ -386,6 +386,70 @@ function Get-PermissionLevels {
     return $script:FriendlyToOlPerm.Keys | ForEach-Object { $_ }
 }
 
+# ─── Simplified permission levels (for Easy-mode wizard) ─────────────────────
+
+function Get-SimplifiedPermissionLevels {
+    <#
+      Returns a concise list of permission choices for the guided wizard.
+      Each item: [PSCustomObject]@{ Label; Description; OlLevel }
+    #>
+    return @(
+        [PSCustomObject]@{ Label = 'Just look (read only)';       Description = 'Can see items but cannot change anything';     OlLevel = 1 }
+        [PSCustomObject]@{ Label = 'Add new items';               Description = 'Can create new items in the folder';           OlLevel = 2 }
+        [PSCustomObject]@{ Label = 'Add and edit everything';     Description = 'Can create, edit, and delete any items';       OlLevel = 5 }
+        [PSCustomObject]@{ Label = 'Full control';                Description = 'Can do everything including manage settings';  OlLevel = 7 }
+        [PSCustomObject]@{ Label = 'No access (block)';           Description = 'Cannot see or access this folder at all';      OlLevel = 0 }
+    )
+}
+
+# ─── Permissions overview (for Easy-mode overview report) ────────────────────
+
+function Get-PermissionsOverview {
+    <#
+      Scans all accounts, all folders, and all permissions to build an overview.
+      Returns @( [PSCustomObject]@{
+          Mailbox     = 'Alice Johnson'
+          SmtpAddress = 'alice@contoso.com'
+          Entries     = @( [PSCustomObject]@{
+              User    = 'Bob Smith'
+              Folders = @( [PSCustomObject]@{ FolderName; FolderPath; EntryID; StoreID; Level } )
+          } )
+      } )
+      Filters out Default/Anonymous users and "No access" (level 0) entries.
+    #>
+    $accounts = Get-SignedInAccounts
+    $results = @()
+    foreach ($acct in $accounts) {
+        $folders = Get-MailboxFolders -SmtpAddress $acct.SmtpAddress
+        $userMap = [ordered]@{}
+        foreach ($f in $folders) {
+            $perms = Get-FolderPermissions -EntryID $f.EntryID -StoreID $f.StoreID
+            foreach ($p in $perms) {
+                if ($p.User -eq 'Default' -or $p.User -eq 'Anonymous') { continue }
+                if ($p.PermissionLevel -eq 0) { continue }
+                if (-not $userMap.Contains($p.User)) { $userMap[$p.User] = @() }
+                $userMap[$p.User] += [PSCustomObject]@{
+                    FolderName = $f.Name
+                    FolderPath = $f.FolderPath
+                    EntryID    = $f.EntryID
+                    StoreID    = $f.StoreID
+                    Level      = $p.PermissionLevelName
+                }
+            }
+        }
+        $entries = @()
+        foreach ($user in $userMap.Keys) {
+            $entries += [PSCustomObject]@{ User = $user; Folders = $userMap[$user] }
+        }
+        $results += [PSCustomObject]@{
+            Mailbox     = $acct.Name
+            SmtpAddress = $acct.SmtpAddress
+            Entries     = $entries
+        }
+    }
+    return $results
+}
+
 Export-ModuleMember -Function `
     Get-SignedInAccounts, `
     Get-MailboxFolders, `
@@ -395,5 +459,7 @@ Export-ModuleMember -Function `
     Remove-FolderPermission, `
     Search-ADUsers, `
     Get-PermissionLevels, `
+    Get-SimplifiedPermissionLevels, `
+    Get-PermissionsOverview, `
     Set-OutlookNSFactory, `
     Set-ADSearchFactory

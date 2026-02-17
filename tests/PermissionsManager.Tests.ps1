@@ -179,6 +179,100 @@ Describe 'Get-PermissionLevels' {
     }
 }
 
+Describe 'Get-SimplifiedPermissionLevels' {
+    It 'Returns 5 simplified levels' {
+        $levels = Get-SimplifiedPermissionLevels
+        $levels.Count | Should -Be 5
+    }
+
+    It 'Each level has Label, Description, and OlLevel' {
+        $levels = Get-SimplifiedPermissionLevels
+        foreach ($l in $levels) {
+            $l.Label       | Should -Not -BeNullOrEmpty
+            $l.Description | Should -Not -BeNullOrEmpty
+            $l.OlLevel     | Should -BeOfType [int]
+        }
+    }
+
+    It 'OlLevel values are valid permission numbers' {
+        $levels = Get-SimplifiedPermissionLevels
+        $valid  = @(0, 1, 2, 5, 7)
+        foreach ($l in $levels) {
+            $l.OlLevel | Should -BeIn $valid
+        }
+    }
+}
+
+Describe 'Get-PermissionsOverview' {
+    It 'Returns overview for all 3 mock accounts' {
+        $overview = Get-PermissionsOverview
+        $overview.Count | Should -Be 3
+    }
+
+    It 'Alice account shows Bob Smith with access' {
+        $overview = Get-PermissionsOverview
+        $alice = $overview | Where-Object { $_.SmtpAddress -eq 'alice@contoso.com' }
+        $bob   = $alice.Entries | Where-Object { $_.User -eq 'Bob Smith' }
+        $bob | Should -Not -BeNullOrEmpty
+        $bob.Folders.Count | Should -BeGreaterThan 0
+    }
+
+    It 'Alice account Bob has Inbox and Calendar entries' {
+        $overview = Get-PermissionsOverview
+        $alice = $overview | Where-Object { $_.SmtpAddress -eq 'alice@contoso.com' }
+        $bob   = $alice.Entries | Where-Object { $_.User -eq 'Bob Smith' }
+        $folderNames = $bob.Folders | ForEach-Object { $_.FolderName }
+        $folderNames | Should -Contain 'Inbox'
+        $folderNames | Should -Contain 'Calendar'
+    }
+
+    It 'Excludes Default and Anonymous users' {
+        $overview = Get-PermissionsOverview
+        foreach ($acct in $overview) {
+            foreach ($entry in $acct.Entries) {
+                $entry.User | Should -Not -Be 'Default'
+                $entry.User | Should -Not -Be 'Anonymous'
+            }
+        }
+    }
+
+    It 'Excludes entries with No access (level 0)' {
+        $overview = Get-PermissionsOverview
+        foreach ($acct in $overview) {
+            foreach ($entry in $acct.Entries) {
+                foreach ($f in $entry.Folders) {
+                    $f.Level | Should -Not -Be 'No access'
+                }
+            }
+        }
+    }
+
+    It 'Shared mailbox shows Frank Weber with Calendar access' {
+        $overview = Get-PermissionsOverview
+        $shared = $overview | Where-Object { $_.SmtpAddress -eq 'shared@contoso.com' }
+        $frank = $shared.Entries | Where-Object { $_.User -eq 'Frank Weber' }
+        $frank | Should -Not -BeNullOrEmpty
+        $frankCal = $frank.Folders | Where-Object { $_.FolderName -eq 'Calendar' }
+        $frankCal | Should -Not -BeNullOrEmpty
+    }
+
+    It 'Each folder entry has EntryID and StoreID for removal' {
+        $overview = Get-PermissionsOverview
+        $alice = $overview | Where-Object { $_.SmtpAddress -eq 'alice@contoso.com' }
+        $bob   = $alice.Entries | Where-Object { $_.User -eq 'Bob Smith' }
+        foreach ($f in $bob.Folders) {
+            $f.EntryID | Should -Not -BeNullOrEmpty
+            $f.StoreID | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'Bob Delegate account has no custom entries (clean slate)' {
+        $overview = Get-PermissionsOverview
+        $bob = $overview | Where-Object { $_.SmtpAddress -eq 'bob.delegate@contoso.com' }
+        $bob.Entries.Count | Should -Be 0
+    }
+}
+
 Describe 'Subfolder hierarchy in mock' {
     It 'Alice Inbox has Projects subfolder at Depth 2' {
         $folders = Get-MailboxFolders -SmtpAddress 'alice@contoso.com'
