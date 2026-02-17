@@ -122,12 +122,19 @@ function Initialize-Ui {
     $txtOutlookWarning   = $Window.FindName('TxtOutlookWarning')
 
     # Permissions tab
-    $lbAccounts          = $Window.FindName('LbAccounts')
-    $btnRefreshAccounts  = $Window.FindName('BtnRefreshAccounts')
-    $btnSetPermission    = $Window.FindName('BtnSetPermission')
-    $txtPermissionUser   = $Window.FindName('TxtPermissionUser')
-    $cbPermissionLevel   = $Window.FindName('CbPermissionLevel')
-    $lbPermissions       = $Window.FindName('LbPermissions')
+    $tbMailboxSearch  = $Window.FindName('TbMailboxSearch')
+    $lbMailboxes      = $Window.FindName('LbMailboxes')
+    $lbFolders        = $Window.FindName('LbFolders')
+    $dgCurrentPerms   = $Window.FindName('DgCurrentPerms')
+    $txtAddUser       = $Window.FindName('TxtAddUser')
+    $popAddUser       = $Window.FindName('PopAddUser')
+    $lbAdResults      = $Window.FindName('LbAdResults')
+    $cbPermLevel      = $Window.FindName('CbPermLevel')
+    $btnSavePerm      = $Window.FindName('BtnSavePerm')
+    $btnRemovePerm    = $Window.FindName('BtnRemovePerm')
+    $txtPermStatus    = $Window.FindName('TxtPermStatus')
+    $txtFolderHint    = $Window.FindName('TxtFolderHint')
+    $btnRefreshPerm   = $Window.FindName('BtnRefreshPerm')
 
     # Extras tab
     $panelExtras         = $Window.FindName('PanelExtras')
@@ -337,13 +344,17 @@ function Initialize-Ui {
         $txtOutlookWarning.Visibility = if (Test-OutlookRunning) { 'Visible' } else { 'Collapsed' }
     }
 
-    # Reusable: refresh accounts list (Permissions tab)
-    $refreshAccounts = {
-        $accounts = Get-SignedInAccounts
-        $lbAccounts.Items.Clear()
-        foreach ($a in $accounts) { $lbAccounts.Items.Add("$($a.Name) <$($a.SmtpAddress)>") }
-        return $accounts
+    # Reusable: refresh mailbox list (Permissions tab)
+    $script:permAllAccounts = @()
+    $refreshPermMailboxes = {
+        $script:permAllAccounts = Get-SignedInAccounts
+        $lbMailboxes.ItemsSource = $null
+        $lbMailboxes.ItemsSource = $script:permAllAccounts
     }
+
+    # Shared state for permissions tab
+    $script:permSelectedFolder  = $null   # PSCustomObject with EntryID, StoreID, Name
+    $script:permAdTimer         = $null   # DispatcherTimer for debounced AD search
 
     # -- WebBrowser: suppress native IE scrollbar via DOM injection on every load --
     # (ClipToBounds cannot clip HwndHost children; CSS overflow:hidden is the reliable fix)
@@ -620,7 +631,7 @@ function Initialize-Ui {
 
     try { & $refreshSignatures } catch { Set-Status "Error loading signatures: $_" }
     try { & $refreshAssignments } catch { Set-Status "Error loading assignments: $_" }
-    try { & $refreshAccounts | Out-Null } catch { }  # silent - Outlook COM may not be available
+    try { & $refreshPermMailboxes } catch { }  # silent - Outlook COM may not be available
 
     # -- Settings: apply saved theme and pre-select controls --
 
@@ -860,26 +871,225 @@ function Initialize-Ui {
         } catch { Show-Error "$_"; Set-Status "Apply failed" }
     })
 
-    # -- Permissions tab --
+    # ── Permissions tab ─────────────────────────────────────────────────────────
 
-    $btnRefreshAccounts.Add_Click({
-        try { & $refreshAccounts | Out-Null; Set-Status "Refreshed accounts" }
-        catch { Set-Status "Error refreshing accounts: $_" }
+    # Populate permission level ComboBox from module
+    foreach ($lvl in (Get-PermissionLevels)) { $cbPermLevel.Items.Add($lvl) | Out-Null }
+    $cbPermLevel.SelectedIndex = 1  # default: "Can view"
+
+    # Helper: set inline status with optional colour
+    function Set-PermStatus {
+        param([string]$Msg, [string]$Colour = '')
+        $txtPermStatus.Text = $Msg
+        if ($Colour) {
+            $txtPermStatus.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString($Colour)
+        } else {
+            # Use theme secondary colour
+            $txtPermStatus.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
+        }
+    }
+
+    # Helper: reload the permissions DataGrid for the currently selected folder
+    function Refresh-PermGrid {
+        if ($null -eq $script:permSelectedFolder) { return }
+        try {
+            $rows = Get-FolderPermissions -EntryID $script:permSelectedFolder.EntryID `
+                                          -StoreID  $script:permSelectedFolder.StoreID
+            $dgCurrentPerms.ItemsSource = $null
+            $dgCurrentPerms.ItemsSource = $rows
+        } catch {
+            Set-PermStatus "Could not read permissions: $_" '#E74C3C'
+        }
+    }
+
+    # ── Mailbox search filter ────────────────────────────────────────────────
+    $tbMailboxSearch.Add_TextChanged({
+        $q = $tbMailboxSearch.Text.Trim()
+        if ([string]::IsNullOrEmpty($q)) {
+            $lbMailboxes.ItemsSource = $script:permAllAccounts
+        } else {
+            $lbMailboxes.ItemsSource = @($script:permAllAccounts | Where-Object {
+                $_.Name -like "*$q*" -or $_.SmtpAddress -like "*$q*"
+            })
+        }
     })
 
-    $btnSetPermission.Add_Click({
-        $targetUser = $txtPermissionUser.Text.Trim()
-        $level      = $cbPermissionLevel.SelectedItem
-        if ([string]::IsNullOrWhiteSpace($targetUser) -or $null -eq $level) {
-            Show-Error 'Enter a user and select a permission level.'
+    # ── Mailbox selection → populate folder list ─────────────────────────────
+    $lbMailboxes.Add_SelectionChanged({
+        $sel = $lbMailboxes.SelectedItem
+        if ($null -eq $sel) { return }
+        $lbFolders.ItemsSource   = $null
+        $dgCurrentPerms.ItemsSource = $null
+        $script:permSelectedFolder  = $null
+        $txtFolderHint.Visibility   = 'Visible'
+        Set-PermStatus ''
+        try {
+            $raw = Get-MailboxFolders -SmtpAddress $sel.SmtpAddress
+            # Build display items with indentation prefix for depth
+            $items = $raw | ForEach-Object {
+                $indent = if ($_.Depth -gt 0) { ('    ' * ($_.Depth - 1)) + '  └─ ' } else { '' }
+                [PSCustomObject]@{
+                    Name        = $_.Name
+                    Indent      = $indent
+                    FolderPath  = $_.FolderPath
+                    EntryID     = $_.EntryID
+                    StoreID     = $_.StoreID
+                    Depth       = $_.Depth
+                }
+            }
+            $lbFolders.ItemsSource = $items
+            Set-Status "Loaded folders for $($sel.Name)"
+        } catch {
+            Set-PermStatus "Could not load folders: $_" '#E74C3C'
+            Set-Status "Error loading folders"
+        }
+    })
+
+    # ── Folder selection → show permissions ──────────────────────────────────
+    $lbFolders.Add_SelectionChanged({
+        $sel = $lbFolders.SelectedItem
+        if ($null -eq $sel) { return }
+        $script:permSelectedFolder = $sel
+        $txtFolderHint.Visibility  = 'Collapsed'
+        $dgCurrentPerms.ItemsSource = $null
+        Set-PermStatus ''
+        try {
+            Refresh-PermGrid
+            Set-Status "Showing permissions for: $($sel.Name)"
+        } catch {
+            Set-PermStatus "Error reading permissions: $_" '#E74C3C'
+        }
+    })
+
+    # ── AD search: debounced via DispatcherTimer ─────────────────────────────
+    $txtAddUser.Add_TextChanged({
+        $q = $txtAddUser.Text.Trim()
+        # Stop any running timer
+        if ($null -ne $script:permAdTimer) {
+            $script:permAdTimer.Stop()
+            $script:permAdTimer = $null
+        }
+        if ($q.Length -lt 2) {
+            $popAddUser.IsOpen = $false
             return
         }
-        $levelText = $level.Content
-        if (-not (Confirm-Action "Set '$levelText' for $targetUser?")) { return }
+        # Start 350 ms debounce timer
+        $timer = New-Object System.Windows.Threading.DispatcherTimer
+        $timer.Interval = [System.TimeSpan]::FromMilliseconds(350)
+        $capturedQ = $q
+        $timer.Add_Tick({
+            $script:permAdTimer.Stop()
+            $script:permAdTimer = $null
+            try {
+                $hits = Search-ADUsers -Query $capturedQ
+                $lbAdResults.ItemsSource = $null
+                if ($hits.Count -gt 0) {
+                    $lbAdResults.ItemsSource = $hits
+                    $popAddUser.IsOpen = $true
+                } else {
+                    $popAddUser.IsOpen = $false
+                    Set-PermStatus "No AD matches — you can still type an email address directly." ''
+                }
+            } catch {
+                $popAddUser.IsOpen = $false
+            }
+        })
+        $script:permAdTimer = $timer
+        $timer.Start()
+    })
+
+    # ── AD result selected → fill search box, close popup ───────────────────
+    $lbAdResults.Add_SelectionChanged({
+        $hit = $lbAdResults.SelectedItem
+        if ($null -eq $hit) { return }
+        # Prefer email, fall back to display name
+        $value = if ($hit.Mail) { $hit.Mail } else { $hit.DisplayName }
+        $txtAddUser.Text     = $value
+        $txtAddUser.CaretIndex = $value.Length
+        $popAddUser.IsOpen   = $false
+        Set-PermStatus ''
+    })
+
+    # ── Save permission ──────────────────────────────────────────────────────
+    $btnSavePerm.Add_Click({
+        if ($null -eq $script:permSelectedFolder) {
+            Set-PermStatus 'Please select a folder first.' '#E74C3C'; return
+        }
+        $user  = $txtAddUser.Text.Trim()
+        $level = $cbPermLevel.SelectedItem
+        if ([string]::IsNullOrWhiteSpace($user)) {
+            Set-PermStatus 'Please enter a name or email address.' '#E74C3C'; return
+        }
+        if ($null -eq $level) {
+            Set-PermStatus 'Please select an access level.' '#E74C3C'; return
+        }
         try {
-            Set-CalendarPermission -User $targetUser -Level $levelText -Confirm:$false
-            Set-Status "Permission set for ${targetUser}: $levelText"
-        } catch { Show-Error "$_"; Set-Status "Permission set failed" }
+            Set-FolderPermission -EntryID $script:permSelectedFolder.EntryID `
+                                 -StoreID $script:permSelectedFolder.StoreID `
+                                 -User    $user `
+                                 -Level   $level
+            Refresh-PermGrid
+            Set-PermStatus "Saved: $user — $level" '#27AE60'
+            Set-Status "Permission saved for $user"
+        } catch {
+            Set-PermStatus "Could not save: $_" '#E74C3C'
+            Set-Status "Permission save failed"
+        }
+    })
+
+    # ── Remove permission (two-click confirm via flag) ───────────────────────
+    $script:permRemovePending = $null   # user name pending confirmation
+    $btnRemovePerm.Add_Click({
+        if ($null -eq $script:permSelectedFolder) {
+            $script:permRemovePending = $null
+            Set-PermStatus 'Please select a folder first.' '#E74C3C'; return
+        }
+        $row = $dgCurrentPerms.SelectedItem
+        if ($null -eq $row) {
+            $script:permRemovePending = $null
+            Set-PermStatus 'Select a person in the list above to remove them.' '#E74C3C'; return
+        }
+        if ($row.User -eq 'Default' -or $row.User -eq 'Anonymous') {
+            $script:permRemovePending = $null
+            Set-PermStatus "The '$($row.User)' entry cannot be removed — you can change its level instead." '#E74C3C'
+            return
+        }
+        if ($script:permRemovePending -ne $row.User) {
+            # First click — ask for confirmation
+            $script:permRemovePending = $row.User
+            Set-PermStatus "Remove access for $($row.User)? Click Remove again to confirm." ''
+            return
+        }
+        # Second click — confirmed
+        $script:permRemovePending = $null
+        try {
+            Remove-FolderPermission -EntryID $script:permSelectedFolder.EntryID `
+                                    -StoreID $script:permSelectedFolder.StoreID `
+                                    -User    $row.User
+            Refresh-PermGrid
+            Set-PermStatus "Removed: $($row.User)" '#27AE60'
+            Set-Status "Removed $($row.User)"
+        } catch {
+            Set-PermStatus "Could not remove: $_" '#E74C3C'
+            Set-Status "Remove failed"
+        }
+    })
+    # Clear pending state when the selected row changes
+    $dgCurrentPerms.Add_SelectionChanged({ $script:permRemovePending = $null; Set-PermStatus '' })
+
+    # ── Refresh mailboxes button ─────────────────────────────────────────────
+    $btnRefreshPerm.Add_Click({
+        try {
+            & $refreshPermMailboxes
+            $lbFolders.ItemsSource      = $null
+            $dgCurrentPerms.ItemsSource = $null
+            $script:permSelectedFolder  = $null
+            $txtFolderHint.Visibility   = 'Visible'
+            Set-PermStatus ''
+            Set-Status "Mailboxes refreshed"
+        } catch {
+            Set-Status "Error refreshing mailboxes: $_"
+        }
     })
 
     # ─── Extras Tab ───────────────────────────────────────────────────────────
