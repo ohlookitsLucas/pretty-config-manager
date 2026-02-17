@@ -142,18 +142,21 @@ function Initialize-Ui {
 
     # -- State --
     $script:currentSig        = $null
-    $script:selectedSigName   = $null    # sig name clicked for assign/preview
-    $script:selectedAccountKey= $null    # RegistryPath of selected account card
+    $script:selectedSigName   = $null    # sig name currently selected for preview/assign
+    $script:selectedAccountKey= $null    # RegistryPath of the highlighted account card
     $script:tabVisitCounts = @{ 0 = 0; 1 = 0 }   # index 0=Signatures, 1=Permissions
     $script:dlgResult      = $false
     $script:windowRef      = $Window
     $script:AppSettings    = Load-Settings
 
     # Script-scope refs for controls used inside script:-scoped functions
+    # NOTE: TxtSelectedSig is looked up via $script:windowRef.FindName at call-time to
+    # avoid a $null reference when closures fire before the window fully renders.
     $script:sigTxtSignatureInfo  = $txtSignatureInfo
     $script:sigPanelInboxList    = $panelInboxList
     $script:sigPanelCopyTargets  = $panelCopyTargets
-    $script:sigTxtSelectedSig    = $txtSelectedSig
+    $script:sigBtnEdit           = $Window.FindName('BtnEditSignature')
+    $script:sigBtnReload         = $Window.FindName('BtnReloadPreview')
 
     # -- Helpers --
 
@@ -176,6 +179,16 @@ function Initialize-Ui {
         [System.Windows.MessageBox]::Show($msg, 'Error',
             [System.Windows.MessageBoxButton]::OK,
             [System.Windows.MessageBoxImage]::Error) | Out-Null
+    }
+
+    # Helper: safely update TxtSelectedSig text (guards against $null reference)
+    function script:Set-SelectedSigLabel([string]$text) {
+        $ctrl = $script:windowRef.FindName('TxtSelectedSig')
+        if ($null -ne $ctrl) { $ctrl.Text = $text }
+        $editBtn = $script:windowRef.FindName('BtnEditSignature')
+        $reloadBtn = $script:windowRef.FindName('BtnReloadPreview')
+        if ($null -ne $editBtn)   { $editBtn.Visibility   = if ([string]::IsNullOrEmpty($text) -or $text -eq '(none selected)') { 'Collapsed' } else { 'Visible' } }
+        if ($null -ne $reloadBtn) { $reloadBtn.Visibility = if ([string]::IsNullOrEmpty($text) -or $text -eq '(none selected)') { 'Collapsed' } else { 'Visible' } }
     }
 
     # Load a signature into the preview pane
@@ -221,12 +234,12 @@ function Initialize-Ui {
         return $nameToColour
     }
 
-    # Select an account card visually (highlight border) and pre-tick its checkbox
+    # Select an account card visually (accent border) and highlight its pill in the bottom bar
     function script:Select-AccountCard($card, [string]$regPath) {
-        # Deselect previous
+        # Deselect previous card
         if ($null -ne $script:selectedAccountKey) {
             foreach ($child in $script:sigPanelInboxList.Children) {
-                if ($child.Tag -eq $script:selectedAccountKey) {
+                if ($child -is [System.Windows.Controls.Border] -and $child.Tag -eq $script:selectedAccountKey) {
                     $child.BorderThickness = [System.Windows.Thickness]::new(1)
                     $child.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, 'BorderBrush')
                     break
@@ -237,21 +250,58 @@ function Initialize-Ui {
         $card.BorderThickness = [System.Windows.Thickness]::new(2)
         $card.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, 'AccentBrush')
 
-        # Pre-tick the matching checkbox in the bottom bar
-        foreach ($cb in $script:sigPanelCopyTargets.Children) {
-            if ($cb -is [System.Windows.Controls.CheckBox]) {
-                $cb.IsChecked = ($cb.Tag -eq $regPath)
+        # Highlight the matching pill in the bottom bar (accent background = selected)
+        foreach ($pill in $script:sigPanelCopyTargets.Children) {
+            if ($pill -is [System.Windows.Controls.Border]) {
+                $isSelected = ($pill.Tag -eq $regPath)
+                if ($isSelected) {
+                    $pill.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, 'AccentBrush')
+                    $tb = $pill.Child
+                    if ($tb -is [System.Windows.Controls.TextBlock]) {
+                        $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextOnAccentBrush')
+                    }
+                } else {
+                    $pill.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, 'SurfaceHoverBrush')
+                    $tb = $pill.Child
+                    if ($tb -is [System.Windows.Controls.TextBlock]) {
+                        $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextPrimaryBrush')
+                    }
+                }
             }
         }
     }
 
-    # Refresh the inbox list and bottom-bar checkboxes
+    # Toggle a pill's selected state (for multi-select in bottom bar)
+    function script:Toggle-MailboxPill($pill) {
+        $isAccent = ($pill.Tag -ne $null -and
+                     $script:selectedPills -contains $pill.Tag)
+        if ($isAccent) {
+            $script:selectedPills = @($script:selectedPills | Where-Object { $_ -ne $pill.Tag })
+            $pill.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, 'SurfaceHoverBrush')
+            $tb = $pill.Child
+            if ($tb -is [System.Windows.Controls.TextBlock]) {
+                $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextPrimaryBrush')
+            }
+        } else {
+            $script:selectedPills += $pill.Tag
+            $pill.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, 'AccentBrush')
+            $tb = $pill.Child
+            if ($tb -is [System.Windows.Controls.TextBlock]) {
+                $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextOnAccentBrush')
+            }
+        }
+    }
+
+    $script:selectedPills = @()   # array of RegistryPath strings for highlighted pills
+
+    # Refresh the inbox list and bottom-bar pills
     $script:refreshInboxList = {
         $colourMap   = Build-SigColourMap
         $assignments = Get-SignatureAssignments
 
         $script:sigPanelInboxList.Children.Clear()
         $script:sigPanelCopyTargets.Children.Clear()
+        $script:selectedPills = @()
 
         if ($assignments.Count -eq 0) {
             $lbl = New-Object System.Windows.Controls.TextBlock
@@ -265,106 +315,131 @@ function Initialize-Ui {
         }
 
         foreach ($a in $assignments) {
-            $displayName = if ($a.SmtpAddress) { $a.SmtpAddress } else { $a.AccountName }
-            $regPath     = $a.RegistryPath
+            $accountDisplay = $a.AccountName
+            $smtpDisplay    = $a.SmtpAddress
+            $regPath        = $a.RegistryPath
 
             # ── Account card ──
             $card = New-Object System.Windows.Controls.Border
             $card.CornerRadius    = [System.Windows.CornerRadius]::new(8)
             $card.BorderThickness = [System.Windows.Thickness]::new(1)
-            $card.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty,   'SurfaceBrush')
-            $card.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty,  'BorderBrush')
-            $card.Padding = [System.Windows.Thickness]::new(10, 8, 10, 8)
-            $card.Margin  = [System.Windows.Thickness]::new(0, 0, 0, 6)
+            $card.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty,  'SurfaceBrush')
+            $card.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, 'BorderBrush')
+            $card.Padding = [System.Windows.Thickness]::new(10, 7, 10, 7)
+            $card.Margin  = [System.Windows.Thickness]::new(0, 0, 0, 5)
             $card.Cursor  = [System.Windows.Input.Cursors]::Hand
             $card.Tag     = $regPath
 
             $sp = New-Object System.Windows.Controls.StackPanel
 
-            # Account name
+            # Account display name
             $lblName = New-Object System.Windows.Controls.TextBlock
-            $lblName.Text       = $displayName
-            $lblName.FontSize   = 12
-            $lblName.FontWeight = 'SemiBold'
-            $lblName.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextPrimaryBrush')
+            $lblName.Text         = $accountDisplay
+            $lblName.FontSize     = 12
+            $lblName.FontWeight   = 'SemiBold'
             $lblName.TextTrimming = 'CharacterEllipsis'
-            $lblName.ToolTip = "$($a.AccountName)`n$regPath"
+            $lblName.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextPrimaryBrush')
+            if (-not [string]::IsNullOrEmpty($smtpDisplay)) {
+                $lblName.ToolTip = $smtpDisplay
+            }
             $sp.Children.Add($lblName) | Out-Null
 
-            # Build New-mail sig label
-            $lblNew = New-Object System.Windows.Controls.TextBlock
-            $lblNew.FontSize = 11
-            $lblNew.Margin   = [System.Windows.Thickness]::new(0, 2, 0, 0)
-            $lblNew.Cursor   = [System.Windows.Input.Cursors]::Hand
-            if ([string]::IsNullOrEmpty($a.NewSignature)) {
-                $lblNew.Text = 'New: (None)'
-                $lblNew.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
-            } else {
-                $cNew = if ($colourMap.ContainsKey($a.NewSignature)) { $colourMap[$a.NewSignature] } else { '#9898A8' }
-                $lblNew.Text       = "New: $($a.NewSignature)"
-                $lblNew.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom($cNew)
-                $lblNew.Tag        = $a.NewSignature
+            # SMTP subtitle (only if different from display name)
+            if (-not [string]::IsNullOrEmpty($smtpDisplay) -and $smtpDisplay -ne $accountDisplay) {
+                $lblSmtp = New-Object System.Windows.Controls.TextBlock
+                $lblSmtp.Text         = $smtpDisplay
+                $lblSmtp.FontSize     = 10
+                $lblSmtp.TextTrimming = 'CharacterEllipsis'
+                $lblSmtp.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 3)
+                $lblSmtp.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
+                $sp.Children.Add($lblSmtp) | Out-Null
             }
 
-            # Build Reply sig label
-            $lblReply = New-Object System.Windows.Controls.TextBlock
-            $lblReply.FontSize = 11
-            $lblReply.Margin   = [System.Windows.Thickness]::new(0, 2, 0, 0)
-            $lblReply.Cursor   = [System.Windows.Input.Cursors]::Hand
-            if ([string]::IsNullOrEmpty($a.ReplySignature)) {
-                $lblReply.Text = 'Reply: (None)'
-                $lblReply.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
-            } else {
-                $cRep = if ($colourMap.ContainsKey($a.ReplySignature)) { $colourMap[$a.ReplySignature] } else { '#9898A8' }
-                $lblReply.Text       = "Reply: $($a.ReplySignature)"
-                $lblReply.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom($cRep)
-                $lblReply.Tag        = $a.ReplySignature
+            # Collect unique sig names for this account (New + Reply, deduped)
+            $sigNames = @()
+            if (-not [string]::IsNullOrEmpty($a.NewSignature))   { $sigNames += $a.NewSignature }
+            if (-not [string]::IsNullOrEmpty($a.ReplySignature) -and $a.ReplySignature -ne $a.NewSignature) {
+                $sigNames += $a.ReplySignature
             }
-            $sp.Children.Add($lblNew)   | Out-Null
-            $sp.Children.Add($lblReply) | Out-Null
+
+            $sigLabels = @()
+            if ($sigNames.Count -eq 0) {
+                $noSig = New-Object System.Windows.Controls.TextBlock
+                $noSig.Text     = '(no signature assigned)'
+                $noSig.FontSize = 11
+                $noSig.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
+                $sp.Children.Add($noSig) | Out-Null
+            } else {
+                foreach ($sn in $sigNames) {
+                    $colour = if ($colourMap.ContainsKey($sn)) { $colourMap[$sn] } else { '#9898A8' }
+                    $lbl = New-Object System.Windows.Controls.TextBlock
+                    $lbl.Text      = $sn
+                    $lbl.FontSize  = 11
+                    $lbl.Margin    = [System.Windows.Thickness]::new(0, 1, 0, 0)
+                    $lbl.Cursor    = [System.Windows.Input.Cursors]::Hand
+                    $lbl.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFrom($colour)
+                    $lbl.Tag       = $sn
+                    $sp.Children.Add($lbl) | Out-Null
+                    $sigLabels += $lbl
+                }
+            }
 
             $card.Child = $sp
             $script:sigPanelInboxList.Children.Add($card) | Out-Null
 
-            # Card click → select card, preview New sig
+            # Card click → select card, preview first sig
             $cardRef    = $card
             $regPathRef = $regPath
-            $newSigRef  = $a.NewSignature
+            $firstSig   = if ($sigNames.Count -gt 0) { $sigNames[0] } else { '' }
             $card.add_MouseLeftButtonUp(({
                 param($s2, $e2)
                 Select-AccountCard $cardRef $regPathRef
-                if (-not [string]::IsNullOrEmpty($newSigRef)) {
-                    $script:selectedSigName = $newSigRef
-                    $script:sigTxtSelectedSig.Text = $newSigRef
-                    Load-SignaturePreview $newSigRef
+                if (-not [string]::IsNullOrEmpty($firstSig)) {
+                    $script:selectedSigName = $firstSig
+                    Set-SelectedSigLabel $firstSig
+                    Load-SignaturePreview $firstSig
                 }
             }).GetNewClosure())
 
-            # Sig-name label click → preview that specific sig + set as selected
-            foreach ($child in @($lblNew, $lblReply)) {
-                if (-not [string]::IsNullOrEmpty($child.Tag)) {
-                    $sigRef   = $child.Tag
-                    $cardRef2 = $card
-                    $regRef2  = $regPath
-                    $child.add_MouseLeftButtonUp(({
-                        param($s3, $e3)
-                        $e3.Handled = $true
-                        Select-AccountCard $cardRef2 $regRef2
-                        $script:selectedSigName = $sigRef
-                        $script:sigTxtSelectedSig.Text = $sigRef
-                        Load-SignaturePreview $sigRef
-                    }).GetNewClosure())
-                }
+            # Sig-name label click → preview that sig
+            foreach ($sigLbl in $sigLabels) {
+                $sigRef   = $sigLbl.Tag
+                $cardRef2 = $card
+                $regRef2  = $regPath
+                $sigLbl.add_MouseLeftButtonUp(({
+                    param($s3, $e3)
+                    $e3.Handled = $true
+                    Select-AccountCard $cardRef2 $regRef2
+                    $script:selectedSigName = $sigRef
+                    Set-SelectedSigLabel $sigRef
+                    Load-SignaturePreview $sigRef
+                }).GetNewClosure())
             }
 
-            # ── Bottom-bar checkbox ──
-            $cb = New-Object System.Windows.Controls.CheckBox
-            $cb.Content  = $displayName
-            $cb.Tag      = $regPath
-            $cb.FontSize = 11
-            $cb.Margin   = [System.Windows.Thickness]::new(0, 0, 12, 0)
-            $cb.VerticalAlignment = 'Center'
-            $script:sigPanelCopyTargets.Children.Add($cb) | Out-Null
+            # ── Bottom-bar pill ──
+            $pill = New-Object System.Windows.Controls.Border
+            $pill.CornerRadius    = [System.Windows.CornerRadius]::new(12)
+            $pill.BorderThickness = [System.Windows.Thickness]::new(1)
+            $pill.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty,  'SurfaceHoverBrush')
+            $pill.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, 'BorderBrush')
+            $pill.Padding         = [System.Windows.Thickness]::new(10, 4, 10, 4)
+            $pill.Margin          = [System.Windows.Thickness]::new(0, 0, 6, 0)
+            $pill.Cursor          = [System.Windows.Input.Cursors]::Hand
+            $pill.Tag             = $regPath
+
+            $pillTxt = New-Object System.Windows.Controls.TextBlock
+            $pillTxt.Text     = $accountDisplay
+            $pillTxt.FontSize = 11
+            $pillTxt.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextPrimaryBrush')
+            $pill.Child = $pillTxt
+
+            $pillRef = $pill
+            $pill.add_MouseLeftButtonUp(({
+                param($sp2, $ep2)
+                Toggle-MailboxPill $pillRef
+            }).GetNewClosure())
+
+            $script:sigPanelCopyTargets.Children.Add($pill) | Out-Null
         }
 
         Set-Status "Loaded $($assignments.Count) mailbox(es)"
@@ -717,8 +792,15 @@ function Initialize-Ui {
         if ([string]::IsNullOrWhiteSpace($name)) { return }
         try {
             New-Signature -Name $name
+            # Open the .htm file in the default editor so user can start editing immediately
+            $htmlPath = Get-SignatureHtmlPath -Name $name
+            if (Test-Path $htmlPath) {
+                Start-Process $htmlPath
+                Set-Status "Created '$name' - editing in external editor"
+            } else {
+                Set-Status "Created '$name'"
+            }
             & $script:refreshInboxList
-            Set-Status "Created '$name'"
         } catch { Show-Error "$_"; Set-Status "Create failed" }
     })
 
@@ -732,7 +814,7 @@ function Initialize-Ui {
         try {
             Rename-Signature -OldName $old -NewName $new
             $script:selectedSigName = $new
-            $script:sigTxtSelectedSig.Text = $new
+            Set-SelectedSigLabel $new
             & $script:refreshInboxList
             Set-Status "Renamed '$old' -> '$new'"
         } catch { Show-Error "$_"; Set-Status "Rename failed" }
@@ -748,7 +830,7 @@ function Initialize-Ui {
             Remove-Signature -Name $name
             $script:currentSig      = $null
             $script:selectedSigName = $null
-            $script:sigTxtSelectedSig.Text = '(none selected)'
+            Set-SelectedSigLabel '(none selected)'
             $script:sigTxtSignatureInfo.Text = 'Select a mailbox or signature to preview.'
             $script:previewBrowserRef.Visibility = 'Collapsed'
             & $script:refreshInboxList
@@ -756,25 +838,55 @@ function Initialize-Ui {
         } catch { Show-Error "$_"; Set-Status "Delete failed" }
     })
 
-    # -- Assign to checked mailboxes --
+    # -- Edit signature in external editor --
+
+    $btnEditSig = $Window.FindName('BtnEditSignature')
+    if ($null -ne $btnEditSig) {
+        $btnEditSig.Add_Click({
+            if ([string]::IsNullOrWhiteSpace($script:currentSig)) { return }
+            $htmlPath = Get-SignatureHtmlPath -Name $script:currentSig
+            if (Test-Path $htmlPath) {
+                Start-Process $htmlPath
+                Set-Status "Opened '$($script:currentSig)' in external editor"
+            } else {
+                Show-Error "Cannot find file for '$($script:currentSig)'"
+            }
+        })
+    }
+
+    # -- Reload preview (after external edit) --
+
+    $btnReloadPrev = $Window.FindName('BtnReloadPreview')
+    if ($null -ne $btnReloadPrev) {
+        $btnReloadPrev.Add_Click({
+            if (-not [string]::IsNullOrWhiteSpace($script:currentSig)) {
+                Load-SignaturePreview $script:currentSig
+                Set-Status "Preview refreshed"
+            }
+        })
+    }
+
+    # -- Assign to highlighted mailbox pills --
 
     $btnAssignSig.Add_Click({
         if ([string]::IsNullOrWhiteSpace($script:selectedSigName)) {
             Show-Error 'Click a signature name in the left panel first.'
             return
         }
-        $ticked = @($script:sigPanelCopyTargets.Children |
-                    Where-Object { $_ -is [System.Windows.Controls.CheckBox] -and $_.IsChecked })
-        if ($ticked.Count -eq 0) { Show-Error 'Tick at least one mailbox below.'; return }
+        if ($script:selectedPills.Count -eq 0) {
+            Show-Error 'Click one or more mailbox pills below to select them.'
+            return
+        }
         try {
-            foreach ($cb in $ticked) {
-                Set-SignatureAssignment -RegistryPath $cb.Tag `
-                    -NewSignature $script:selectedSigName `
+            foreach ($regPath in $script:selectedPills) {
+                Set-SignatureAssignment -RegistryPath $regPath `
+                    -NewSignature   $script:selectedSigName `
                     -ReplySignature $script:selectedSigName
             }
+            $count = $script:selectedPills.Count
             & $script:refreshInboxList
             $outlookRunning = Test-OutlookRunning
-            Set-Status "Assigned '$($script:selectedSigName)' to $($ticked.Count) mailbox(es)"
+            Set-Status "Assigned '$($script:selectedSigName)' to $count mailbox(es)"
             if ($outlookRunning) {
                 [System.Windows.MessageBox]::Show(
                     "Assignment saved.`n`nOutlook is currently running - restart it for changes to take effect.",
@@ -827,15 +939,28 @@ function Initialize-Ui {
         }
     }
 
+    $script:permLastSelectedSmtp = $null   # track last selected mailbox across ItemsSource resets
+
     # ── Mailbox search filter ────────────────────────────────────────────────
     $tbMailboxSearch.Add_TextChanged({
         $q = $script:permTbMailboxSearch.Text.Trim()
+        # Capture current selection before resetting ItemsSource
+        $prevSmtp = $script:permLastSelectedSmtp
         if ([string]::IsNullOrEmpty($q)) {
             $script:permLbMailboxes.ItemsSource = $script:permAllAccounts
         } else {
             $script:permLbMailboxes.ItemsSource = @($script:permAllAccounts | Where-Object {
                 $_.Name -like "*$q*" -or $_.SmtpAddress -like "*$q*"
             })
+        }
+        # Re-select previously selected mailbox if still visible
+        if (-not [string]::IsNullOrEmpty($prevSmtp)) {
+            for ($i = 0; $i -lt $script:permLbMailboxes.Items.Count; $i++) {
+                if ($script:permLbMailboxes.Items[$i].SmtpAddress -eq $prevSmtp) {
+                    $script:permLbMailboxes.SelectedIndex = $i
+                    break
+                }
+            }
         }
     })
 
@@ -848,19 +973,24 @@ function Initialize-Ui {
 
     function script:Get-FolderIcon {
         param([string]$Name, [int]$Depth)
-        if ($Depth -eq 0) { return '[M]' }
-        switch -Wildcard ($Name) {
-            'Inbox'    { return '[I]' }
-            'Sent*'    { return '[S]' }
-            'Deleted*' { return '[X]' }
-            'Drafts'   { return '[D]' }
-            'Calendar' { return '[C]' }
-            'Contacts' { return '[P]' }
-            'Tasks'    { return '[T]' }
-            'Junk*'    { return '[J]' }
-            'Archive*' { return '[A]' }
-            'Outbox'   { return '[O]' }
-            default    { if ($Depth -eq 1) { return '[F]' } else { return '  [F]' } }
+        # Unicode glyphs from Segoe UI Symbol (well-supported on Windows 10/11)
+        if ($Depth -eq 0) { return [char]0x2709 }  # ✉ mailbox root
+        switch -Wildcard ($Name.ToLower()) {
+            'inbox'          { return [char]0x25BC }   # ▼ incoming
+            'sent*'          { return [char]0x25B2 }   # ▲ outgoing
+            'deleted*'       { return [char]0x2715 }   # ✕ deleted
+            'trash'          { return [char]0x2715 }   # ✕
+            'drafts'         { return [char]0x270F }   # ✏ drafts
+            'calendar*'      { return [char]0x25A6 }   # ▦ calendar
+            'contacts*'      { return [char]0x263A }   # ☺ contacts
+            'tasks'          { return [char]0x2611 }   # ☑ tasks
+            'junk*'          { return [char]0x26A0 }   # ⚠ junk
+            'spam'           { return [char]0x26A0 }   # ⚠
+            'archive*'       { return [char]0x25A4 }   # ▤ archive
+            'outbox'         { return [char]0x2191 }   # ↑ outbox
+            'notes'          { return [char]0x270E }   # ✎ notes
+            'journal'        { return [char]0x25D4 }   # ◔ journal
+            default          { return [char]0x25B7 }   # ▷ generic folder
         }
     }
 
@@ -871,6 +1001,7 @@ function Initialize-Ui {
     $lbMailboxes.Add_SelectionChanged({
         $sel = $script:permLbMailboxes.SelectedItem
         if ($null -eq $sel) { return }
+        $script:permLastSelectedSmtp = $sel.SmtpAddress   # persist for search-filter reselect
         $script:permLbFolders.ItemsSource   = $null
         $script:permDgPerms.ItemsSource     = $null
         $script:permSelectedFolder          = $null

@@ -274,11 +274,50 @@ function Get-SignatureAssignments {
     <#
     Returns a list of PSCustomObjects:
       @{ AccountName; SmtpAddress; NewSignature; ReplySignature; RegistryPath }
-    Reads from both the global MailSettings key and per-account profile keys.
+    Per-account entries are built first. The global (Default) entry is only
+    prepended when at least one per-account entry exists, so machines with no
+    Outlook accounts configured return an empty list.
     #>
-    $results = @()
+    $perAccount = @()
 
-    # Global key (applies when no per-account override exists)
+    # Per-account profile keys — include ALL accounts, not just those with sigs assigned
+    $profilesBase = "HKCU:\Software\Microsoft\Office\$script:OutlookVer\Outlook\Profiles"
+    if (Test-Path $profilesBase) {
+        Get-ChildItem -Path $profilesBase -ErrorAction SilentlyContinue | ForEach-Object {
+            $profilePath = $_.PSPath
+            $acctGuid = '9375CFF0413111d3B88A00104B2A6676'
+            $acctBase = Join-Path $profilePath $acctGuid
+            if (Test-Path $acctBase) {
+                Get-ChildItem -Path $acctBase -ErrorAction SilentlyContinue | ForEach-Object {
+                    $acctPath  = $_.PSPath
+                    $acctProps = Get-ItemProperty -Path $acctPath -ErrorAction SilentlyContinue
+                    if ($null -eq $acctProps) { return }
+                    # Identify real account entries by the presence of an Account Name value
+                    $rawName = $acctProps.'Account Name'
+                    if ([string]::IsNullOrEmpty($rawName)) { return }
+                    # Extract SMTP from "Display Name <smtp@addr>" or direct value
+                    $smtp = $rawName -replace '^.*<(.+)>.*$','$1'
+                    if ($smtp -eq $rawName) { $smtp = '' }   # no angle-bracket pattern found
+                    if ([string]::IsNullOrEmpty($smtp) -and $acctProps.PSObject.Properties['Email']) {
+                        $smtp = $acctProps.Email
+                    }
+                    $displayName = if ($acctProps.'Display Name') { $acctProps.'Display Name' } else { $smtp }
+                    $perAccount += [PSCustomObject]@{
+                        AccountName    = $displayName
+                        SmtpAddress    = $smtp
+                        NewSignature   = if ($acctProps.'New Signature')   { $acctProps.'New Signature' }   else { '' }
+                        ReplySignature = if ($acctProps.'Reply Signature') { $acctProps.'Reply Signature' } else { '' }
+                        RegistryPath   = $acctPath
+                    }
+                }
+            }
+        }
+    }
+
+    # Only expose the global (Default) entry when real accounts exist
+    if ($perAccount.Count -eq 0) { return @() }
+
+    $results = @()
     $globalKey = $script:RegBase
     if (Test-Path $globalKey) {
         $vals = Get-ItemProperty -Path $globalKey -ErrorAction SilentlyContinue
@@ -290,35 +329,7 @@ function Get-SignatureAssignments {
             RegistryPath   = $globalKey
         }
     }
-
-    # Per-account profile keys
-    $profilesBase = "HKCU:\Software\Microsoft\Office\$script:OutlookVer\Outlook\Profiles"
-    if (Test-Path $profilesBase) {
-        Get-ChildItem -Path $profilesBase -ErrorAction SilentlyContinue | ForEach-Object {
-            $profilePath = $_.PSPath
-            $acctGuid = '9375CFF0413111d3B88A00104B2A6676'
-            $acctBase = Join-Path $profilePath $acctGuid
-            if (Test-Path $acctBase) {
-                Get-ChildItem -Path $acctBase -ErrorAction SilentlyContinue | ForEach-Object {
-                    $acctPath = $_.PSPath
-                    $acctProps = Get-ItemProperty -Path $acctPath -ErrorAction SilentlyContinue
-                    # Only account entries have Account Name / SMTP
-                    $smtp = $acctProps.'Account Name' -replace '^.*<(.+)>.*$','$1'
-                    if (-not $smtp -and $acctProps.PSObject.Properties['Email']) { $smtp = $acctProps.Email }
-                    if ($acctProps -and ($acctProps.'New Signature' -or $acctProps.'Reply Signature')) {
-                        $results += [PSCustomObject]@{
-                            AccountName    = if ($acctProps.'Display Name') { $acctProps.'Display Name' } else { $smtp }
-                            SmtpAddress    = $smtp
-                            NewSignature   = if ($acctProps.'New Signature')   { $acctProps.'New Signature' }   else { '' }
-                            ReplySignature = if ($acctProps.'Reply Signature') { $acctProps.'Reply Signature' } else { '' }
-                            RegistryPath   = $acctPath
-                        }
-                    }
-                }
-            }
-        }
-    }
-
+    $results += $perAccount
     return $results
 }
 

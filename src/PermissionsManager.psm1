@@ -64,11 +64,36 @@ function Get-SignedInAccounts {
 
 # ─── Folder enumeration ───────────────────────────────────────────────────────
 
+# System/hidden folder names to suppress — covers Exchange internals, add-in folders,
+# localized German names, and other folders users should not set permissions on.
+$script:HiddenFolderNames = [System.Collections.Generic.HashSet[string]]([System.StringComparer]::OrdinalIgnoreCase)
+@(
+    'Yammer Root', 'Conversation Action Settings', 'Conversation History',
+    'Synchronisierungsprobleme', 'Sync Issues', 'Quick Step Settings',
+    'ExternalContacts', 'GAL Contacts', 'Recipient Cache',
+    'Social Activity Notifications', 'Files', 'OneNote',
+    'Suggested Contacts', 'PersonMetadata', 'Recoverable Items',
+    'Purges', 'Versions', 'DiscoveryHolds', 'Audits',
+    'Calendar Logging', 'Conflicts', 'Local Failures', 'Server Failures',
+    'Common Views', 'Finder', 'Reminders', 'Schedule',
+    'To-Do', 'Tracked Mail Processing', 'PeopleConnect',
+    'Orion Notes', 'Spooler Queue', 'Wichtige E-Mails'
+) | ForEach-Object { $script:HiddenFolderNames.Add($_) | Out-Null }
+
 function script:Get-FoldersRecursive {
     param($Folder, [int]$Depth = 0)
     $results = @()
+
+    $folderName = $Folder.Name
+
+    # Depth 0 is the store root — include it so the mailbox itself appears as a header
+    # but skip any root whose name is in the hidden list
+    if ($Depth -gt 0 -and $script:HiddenFolderNames.Contains($folderName)) {
+        return $results   # skip this folder and all its children
+    }
+
     $results += [PSCustomObject]@{
-        Name        = $Folder.Name
+        Name        = $folderName
         FolderPath  = $Folder.FolderPath
         EntryID     = $Folder.EntryID
         StoreID     = $Folder.StoreID
@@ -94,41 +119,41 @@ function Get-MailboxFolders {
     param([string]$SmtpAddress)
     try {
         $ns = Get-OutlookNS
-        # Find the Store whose root display matches the account
+
+        # Build list of display names for this SMTP from the Accounts COM collection
+        $accDisplayNames = @()
+        for ($j = 1; $j -le $ns.Accounts.Count; $j++) {
+            $a = $ns.Accounts.Item($j)
+            $aSmtp = ''; try { $aSmtp = $a.SmtpAddress } catch {}
+            if ($aSmtp -eq $SmtpAddress) {
+                $accDisplayNames += $a.DisplayName
+            }
+        }
+
+        # Walk every Store and return the first one whose display name matches
         for ($i = 1; $i -le $ns.Stores.Count; $i++) {
             $store = $ns.Stores.Item($i)
-            try {
-                $root = $store.GetRootFolder()
-                # Match by SMTP embedded in the folder path or display name
-                $storeSmtp = ''
+            $storeName = ''; try { $storeName = $store.DisplayName } catch {}
+            $isMatch = $false
+            foreach ($dn in $accDisplayNames) {
+                if ($storeName -like "*$dn*" -or $dn -like "*$storeName*") {
+                    $isMatch = $true; break
+                }
+            }
+            # Also match if the store name directly contains the SMTP address
+            if (-not $isMatch -and $storeName -like "*$SmtpAddress*") { $isMatch = $true }
+            # If only one store exists, just use it
+            if (-not $isMatch -and $ns.Stores.Count -eq 1) { $isMatch = $true }
+
+            if ($isMatch) {
                 try {
-                    $acc = $ns.Accounts | Where-Object { $_.SmtpAddress -eq $SmtpAddress } | Select-Object -First 1
-                    if ($null -eq $acc) { continue }
-                    # The store for this account typically has the display name matching the account
-                    if ($store.DisplayName -ne $acc.DisplayName -and
-                        $store.DisplayName -ne $SmtpAddress -and
-                        $root.Name -ne $acc.DisplayName) {
-                        # Try matching via ExchangeStoreType or fallback: use first store for primary account
-                    }
-                } catch {}
-                # Just enumerate folders for every store that matches any account with this SMTP
-                # A simple heuristic: return folders for the first store whose name contains the SMTP or display name
-                $accNames = @()
-                for ($j = 1; $j -le $ns.Accounts.Count; $j++) {
-                    $a = $ns.Accounts.Item($j)
-                    if ($a.SmtpAddress -eq $SmtpAddress) {
-                        $accNames += $a.DisplayName
-                        $accNames += $a.SmtpAddress
-                    }
-                }
-                $storeName = $store.DisplayName
-                $match = $accNames | Where-Object { $storeName -like "*$_*" -or $_ -like "*$storeName*" }
-                if ($match -or ($ns.Stores.Count -eq 1)) {
+                    $root = $store.GetRootFolder()
                     return Get-FoldersRecursive -Folder $root -Depth 0
-                }
-            } catch {}
+                } catch {}
+            }
         }
-        # Fallback: return root folders of first store
+
+        # Last resort fallback: first store
         $firstRoot = $ns.Stores.Item(1).GetRootFolder()
         return Get-FoldersRecursive -Folder $firstRoot -Depth 0
     } catch {
