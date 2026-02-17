@@ -962,9 +962,12 @@ function Initialize-Ui {
     })
 
     # ── AD search: debounced via DispatcherTimer ─────────────────────────────
+    # Tick handler is defined as a named scriptblock so the parser doesn't
+    # struggle with deeply-nested closures inside event handlers.
+    $script:permAdTickHandler = $null
+
     $txtAddUser.Add_TextChanged({
         $q = $txtAddUser.Text.Trim()
-        # Stop any running timer
         if ($null -ne $script:permAdTimer) {
             $script:permAdTimer.Stop()
             $script:permAdTimer = $null
@@ -973,15 +976,12 @@ function Initialize-Ui {
             $popAddUser.IsOpen = $false
             return
         }
-        # Start 350 ms debounce timer
-        $timer = New-Object System.Windows.Threading.DispatcherTimer
-        $timer.Interval = [System.TimeSpan]::FromMilliseconds(350)
-        $capturedQ = $q
-        $timer.Add_Tick({
+        # Build a fresh tick handler that closes over the current query string
+        $script:permAdTickHandler = {
             $script:permAdTimer.Stop()
             $script:permAdTimer = $null
             try {
-                $hits = Search-ADUsers -Query $capturedQ
+                $hits = Search-ADUsers -Query $script:permAdLastQuery
                 $lbAdResults.ItemsSource = $null
                 if ($hits.Count -gt 0) {
                     $lbAdResults.ItemsSource = $hits
@@ -993,7 +993,11 @@ function Initialize-Ui {
             } catch {
                 $popAddUser.IsOpen = $false
             }
-        })
+        }
+        $script:permAdLastQuery = $q
+        $timer = New-Object System.Windows.Threading.DispatcherTimer
+        $timer.Interval = [System.TimeSpan]::FromMilliseconds(350)
+        $timer.Add_Tick($script:permAdTickHandler)
         $script:permAdTimer = $timer
         $timer.Start()
     })
