@@ -631,7 +631,7 @@ function Initialize-Ui {
 
     try { & $refreshSignatures } catch { Set-Status "Error loading signatures: $_" }
     try { & $refreshAssignments } catch { Set-Status "Error loading assignments: $_" }
-    try { & $refreshPermMailboxes } catch { }  # silent - Outlook COM may not be available
+    try { & $refreshPermMailboxes } catch { Set-Status "Mailboxes unavailable: $_" }
 
     # -- Settings: apply saved theme and pre-select controls --
 
