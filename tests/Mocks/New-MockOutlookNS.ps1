@@ -16,12 +16,14 @@
   Every folder has a .Parent property pointing to its parent folder (or $null for root).
   This mirrors the Outlook COM object model and is used by Set-FolderPermissionWithAncestors.
 
-  Pre-loaded permissions by account:
-    Alice Johnson   – Inbox: Bob=1, Charlie=2; Calendar: Bob=7, Diana=3; Sent/Contacts/Drafts: Default+Anon
+  Pre-loaded permissions by account (root always includes everyone who has subfolder access):
+    Alice Johnson   – Root: Bob=1, Charlie=1, Diana=1
+                      Inbox: Bob=1, Charlie=2; Calendar: Bob=7, Diana=3; Sent/Contacts/Drafts: Default+Anon
                       Inbox > Projects (Depth 2): Default+Anon only
                       Inbox > Projects > Client A (Depth 3): Default+Anon only
                       Inbox > Archive (Depth 2): Default+Anon only
-    Shared Services – Inbox: Alice=7, Bob=7, Eva=4; Calendar: Alice=7, Frank=3; Sent/Contacts/Drafts: Default+Anon
+    Shared Services – Root: Alice=1, Bob=1, Eva=1, Frank=1
+                      Inbox: Alice=7, Bob=7, Eva=4; Calendar: Alice=7, Frank=3; Sent/Contacts/Drafts: Default+Anon
     Bob (Delegate)  – Inbox/Calendar/etc.: Default+Anon only (clean slate for testing Add)
 #>
 
@@ -170,9 +172,17 @@ function New-MockOutlookNS {
         $drafts = New-MockFolder 'Drafts' "$root\Drafts" "entry-$StoreID-drafts" $StoreID `
             -PermEntries (_DefaultAnon)
 
+        # Root must include everyone who has access to any child folder,
+        # otherwise they can't navigate to the subfolder in Outlook.
         return New-MockFolder 'Alice Johnson' $root "entry-$StoreID-root" $StoreID `
             -SubFolders @($inbox, $sent, $calendar, $contacts, $drafts) `
-            -PermEntries (_DefaultAnon)
+            -PermEntries @(
+            (New-MockPermEntry 'Default'         0)
+            (New-MockPermEntry 'Anonymous'       0)
+            (New-MockPermEntry 'Bob Smith'       1)   # Can view — needed for Inbox + Calendar access
+            (New-MockPermEntry 'Charlie Brown'   1)   # Can view — needed for Inbox access
+            (New-MockPermEntry 'Diana Prince'    1)   # Can view — needed for Calendar access
+        )
     }
 
     function New-SharedTree {
@@ -203,9 +213,17 @@ function New-MockOutlookNS {
         $drafts = New-MockFolder 'Drafts' "$root\Drafts" "entry-$StoreID-drafts" $StoreID `
             -PermEntries (_DefaultAnon)
 
+        # Root must include everyone who has access to any child folder
         return New-MockFolder 'Shared Services' $root "entry-$StoreID-root" $StoreID `
             -SubFolders @($inbox, $sent, $calendar, $contacts, $drafts) `
-            -PermEntries (_DefaultAnon)
+            -PermEntries @(
+            (New-MockPermEntry 'Default'         0)
+            (New-MockPermEntry 'Anonymous'       0)
+            (New-MockPermEntry 'Alice Johnson'   1)   # Can view — needed for Inbox, Sent, Calendar access
+            (New-MockPermEntry 'Bob Smith'       1)   # Can view — needed for Inbox, Sent access
+            (New-MockPermEntry 'Eva Mueller'     1)   # Can view — needed for Inbox access
+            (New-MockPermEntry 'Frank Weber'     1)   # Can view — needed for Calendar access
+        )
     }
 
     function New-BobTree {
