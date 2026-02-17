@@ -1,4 +1,4 @@
-# Mouse Confusion
+﻿# Mouse Confusion
 # Moves the mouse cursor slightly every few seconds — subtle and annoying.
 Add-Type -AssemblyName System.Windows.Forms
 

@@ -1,4 +1,4 @@
-# Caps Lock Troll
+﻿# Caps Lock Troll
 # Toggles Caps Lock every few seconds — makes the victim wonder why their typing keeps shifting.
 Add-Type -TypeDefinition @"
 using System;

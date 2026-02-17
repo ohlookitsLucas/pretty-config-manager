@@ -1,0 +1,5 @@
+Alice Johnson
+IT Department | Contoso Ltd
+alice@contoso.com | +49 123 456 789
+
+This email and any attachments are confidential.

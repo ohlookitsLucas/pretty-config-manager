@@ -1,4 +1,4 @@
-<#
+﻿<#
   SignatureManager.psm1
   Full CRUD for Outlook signatures: list, validate, new, rename, delete, duplicate,
   export/import (zip), registry read/write for mailbox assignments, file-lock detection,
@@ -21,10 +21,12 @@
       Reply Signature = <name>
 #>
 
-$script:SigPath    = Join-Path $env:APPDATA 'Microsoft\Signatures'
-$script:RegBase    = 'HKCU:\Software\Microsoft\Office\16.0\Common\MailSettings'
-$script:OutlookVer = '16.0'
-$script:LogFile    = Join-Path $env:APPDATA 'outlookmAnAger\sigmanager.log'
+$script:SigPath      = Join-Path $env:APPDATA 'Microsoft\Signatures'
+$script:RegBase      = 'HKCU:\Software\Microsoft\Office\16.0\Common\MailSettings'
+$script:ProfilesBase = 'HKCU:\Software\Microsoft\Office\16.0\Outlook\Profiles'
+$script:OutlookVer   = '16.0'
+$script:LogFile      = Join-Path $env:APPDATA 'outlookmAnAger\sigmanager.log'
+$script:BackupDir    = Join-Path $env:APPDATA 'outlookmAnAger\registry-backups'
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 
@@ -34,6 +36,24 @@ function Write-SigLog {
     if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
     $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$Level] $Message"
     Add-Content -Path $script:LogFile -Value $line -Encoding UTF8 -ErrorAction SilentlyContinue
+}
+
+# ─── Path override (for testing) ──────────────────────────────────────────────
+
+function Set-SignatureManagerPaths {
+    <# Redirect module-scope paths so unit tests / sandbox can run against a temp directory. #>
+    param(
+        [string]$SignaturePath,
+        [string]$RegistryBase,
+        [string]$ProfilesBase,
+        [string]$LogFile,
+        [string]$BackupDir
+    )
+    if ($SignaturePath) { $script:SigPath      = $SignaturePath }
+    if ($RegistryBase)  { $script:RegBase       = $RegistryBase }
+    if ($ProfilesBase)  { $script:ProfilesBase  = $ProfilesBase }
+    if ($LogFile)       { $script:LogFile        = $LogFile }
+    if ($BackupDir)     { $script:BackupDir      = $BackupDir }
 }
 
 # ─── Path helpers ──────────────────────────────────────────────────────────────
@@ -281,7 +301,7 @@ function Get-SignatureAssignments {
     $perAccount = @()
 
     # Per-account profile keys — include ALL accounts, not just those with sigs assigned
-    $profilesBase = "HKCU:\Software\Microsoft\Office\$script:OutlookVer\Outlook\Profiles"
+    $profilesBase = $script:ProfilesBase
     if (Test-Path $profilesBase) {
         Get-ChildItem -Path $profilesBase -ErrorAction SilentlyContinue | ForEach-Object {
             $profilePath = $_.PSPath
@@ -322,7 +342,7 @@ function Get-SignatureAssignments {
     if (Test-Path $globalKey) {
         $vals = Get-ItemProperty -Path $globalKey -ErrorAction SilentlyContinue
         $results += [PSCustomObject]@{
-            AccountName    = '(Default)'
+            AccountName    = 'All accounts (global default)'
             SmtpAddress    = ''
             NewSignature   = if ($vals.NewSignature)   { $vals.NewSignature }   else { '' }
             ReplySignature = if ($vals.ReplySignature) { $vals.ReplySignature } else { '' }
@@ -343,7 +363,7 @@ function Set-SignatureAssignment {
     )
 
     # Backup the key before modifying
-    $backupDir = Join-Path $env:APPDATA 'outlookmAnAger\registry-backups'
+    $backupDir = $script:BackupDir
     if (-not (Test-Path $backupDir)) { New-Item -ItemType Directory -Path $backupDir -Force | Out-Null }
     $backupFile = Join-Path $backupDir "backup-$(Get-Date -Format 'yyyyMMdd-HHmmss').reg"
     try {
@@ -449,4 +469,5 @@ Export-ModuleMember -Function `
     Save-SignatureHtml, `
     Get-SignatureAssignments, Set-SignatureAssignment, `
     Export-Signature, Import-Signature, `
-    Test-OutlookRunning, Test-FileLocked
+    Test-OutlookRunning, Test-FileLocked, `
+    Set-SignatureManagerPaths

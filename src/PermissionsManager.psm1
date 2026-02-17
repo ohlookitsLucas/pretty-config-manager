@@ -1,4 +1,4 @@
-<#
+﻿<#
   PermissionsManager.psm1
   Helpers to enumerate Outlook accounts, mailbox folders, and folder permissions
   using the Outlook COM object model (MAPI). Includes Active Directory user search
@@ -32,9 +32,25 @@ $script:FriendlyToOlPerm = [ordered]@{
     'Can view & create'            = 3
 }
 
+$script:OutlookNSFactory = $null
+$script:ADSearchFactory  = $null
+
 function script:Get-OutlookNS {
+    if ($script:OutlookNSFactory) { return & $script:OutlookNSFactory }
     $ol = New-Object -ComObject Outlook.Application
     return $ol.GetNameSpace('MAPI')
+}
+
+function Set-OutlookNSFactory {
+    <# Inject a scriptblock that returns a mock MAPI namespace (for offline testing). #>
+    param([scriptblock]$Factory)
+    $script:OutlookNSFactory = $Factory
+}
+
+function Set-ADSearchFactory {
+    <# Inject a scriptblock that returns mock AD search results (for offline testing). #>
+    param([scriptblock]$Factory)
+    $script:ADSearchFactory = $Factory
 }
 
 # ─── Account enumeration (reused by both Signatures and Permissions tabs) ─────
@@ -176,11 +192,11 @@ function Get-FolderPermissions {
     try {
         $ns     = Get-OutlookNS
         $folder = $ns.GetFolderFromID($EntryID, $StoreID)
-        $perms  = $folder.Permission
+        $perms  = $folder.FolderPermissions
         $results = @()
         for ($i = 1; $i -le $perms.Count; $i++) {
             $p     = $perms.Item($i)
-            $level = $p.PermissionSet
+            $level = $p.OlFolderPermission
             $name  = if ($script:OlPermissionMap.Contains([int]$level)) {
                          $script:OlPermissionMap[[int]$level]
                      } else { "Level $level" }
@@ -222,7 +238,7 @@ function Set-FolderPermission {
 
     $ns     = Get-OutlookNS
     $folder = $ns.GetFolderFromID($EntryID, $StoreID)
-    $perms  = $folder.Permission
+    $perms  = $folder.FolderPermissions
 
     # Check if user already exists
     $existing = $null
@@ -234,12 +250,70 @@ function Set-FolderPermission {
     }
 
     if ($null -ne $existing) {
-        $existing.PermissionSet = $levelNum
+        $existing.OlFolderPermission = $levelNum
     } else {
         $newPerm = $perms.Add($User)
-        $newPerm.PermissionSet = $levelNum
+        $newPerm.OlFolderPermission = $levelNum
     }
     $perms.Save()
+}
+
+function Set-FolderPermissionWithAncestors {
+    <#
+      Sets a user's permission on the target folder AND auto-grants "Can view"
+      on every ancestor folder where the user has NO existing permission entry.
+      This ensures the user can navigate to the subfolder in Outlook.
+
+      Returns [PSCustomObject]@{ Success=$true; AutoGranted=@( @{FolderName; Level} ) }
+      AutoGranted lists each parent folder that was automatically given "Can view".
+      If user already has ANY permission on a parent (even "No access"), that parent
+      is left alone — we don't override explicit admin decisions.
+    #>
+    param(
+        [Parameter(Mandatory=$true)][string]$EntryID,
+        [Parameter(Mandatory=$true)][string]$StoreID,
+        [Parameter(Mandatory=$true)][string]$User,
+        [Parameter(Mandatory=$true)]$Level
+    )
+
+    # 1. Set permission on the target folder
+    Set-FolderPermission -EntryID $EntryID -StoreID $StoreID -User $User -Level $Level
+
+    # 2. Walk parents upward, auto-granting "Can view" where needed
+    $autoGranted = @()
+    $ns     = Get-OutlookNS
+    $folder = $ns.GetFolderFromID($EntryID, $StoreID)
+
+    $current = $folder.Parent
+    while ($null -ne $current) {
+        # Stop at the store root (Depth 0): a folder whose own Parent is $null
+        # is the mailbox root — we never auto-grant on that level.
+        if ($null -eq $current.Parent) { break }
+
+        $perms = $current.FolderPermissions
+        $hasEntry = $false
+        for ($i = 1; $i -le $perms.Count; $i++) {
+            if ($perms.Item($i).UserName -eq $User) {
+                $hasEntry = $true
+                break
+            }
+        }
+
+        if (-not $hasEntry) {
+            # Auto-grant "Can view" (level 1)
+            $newPerm = $perms.Add($User)
+            $newPerm.OlFolderPermission = 1
+            $perms.Save()
+            $autoGranted += @{ FolderName = $current.Name; Level = 'Can view' }
+        }
+
+        $current = $current.Parent
+    }
+
+    return [PSCustomObject]@{
+        Success     = $true
+        AutoGranted = $autoGranted
+    }
 }
 
 function Remove-FolderPermission {
@@ -253,7 +327,7 @@ function Remove-FolderPermission {
     )
     $ns     = Get-OutlookNS
     $folder = $ns.GetFolderFromID($EntryID, $StoreID)
-    $perms  = $folder.Permission
+    $perms  = $folder.FolderPermissions
     for ($i = $perms.Count; $i -ge 1; $i--) {
         if ($perms.Item($i).UserName -eq $User) {
             $perms.Remove($i)
@@ -274,6 +348,7 @@ function Search-ADUsers {
     #>
     param([string]$Query)
     if ([string]::IsNullOrWhiteSpace($Query) -or $Query.Length -lt 2) { return @() }
+    if ($script:ADSearchFactory) { return & $script:ADSearchFactory $Query }
     try {
         Add-Type -AssemblyName System.DirectoryServices -ErrorAction Stop
         $searcher = New-Object System.DirectoryServices.DirectorySearcher
@@ -316,6 +391,9 @@ Export-ModuleMember -Function `
     Get-MailboxFolders, `
     Get-FolderPermissions, `
     Set-FolderPermission, `
+    Set-FolderPermissionWithAncestors, `
     Remove-FolderPermission, `
     Search-ADUsers, `
-    Get-PermissionLevels
+    Get-PermissionLevels, `
+    Set-OutlookNSFactory, `
+    Set-ADSearchFactory

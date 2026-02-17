@@ -22,11 +22,12 @@ Control who can see and interact with your mailbox folders.
 - **Pick a folder** — select Inbox, Calendar, Contacts, or any subfolder to manage its sharing
 - **See who has access** — a clear table shows every person who has been granted access and what they can do
 - **Add or change access** — search your organisation's directory by name or email, pick an access level in plain English, and save with one click
+- **Automatic parent folder access** — when you grant access to a subfolder, the tool automatically grants "Can view" on parent folders so the user can navigate to it in Outlook
 - **Remove access** — select someone from the list and click Remove to revoke their access
 
 ### Settings
-- **Themes** — choose between Dark (default), Light, or Crimson to match your preference
-- **Language** — regional language support (in progress)
+- **Themes** — choose between Dark (default), Light, or Retro to match your preference
+- **Language** — English and German
 
 ### Extras
 There are a few surprises hidden in here. You'll know how to find them.
@@ -48,13 +49,67 @@ There are a few surprises hidden in here. You'll know how to find them.
 
 ```powershell
 cd C:\path\to\outlookmAnAger
-.\build-and-run.ps1
+.\src\PrettyConfMan.ps1
 ```
 
 > **Execution policy:** If your machine blocks unsigned scripts, run this once first:
 > ```powershell
 > Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 > ```
+
+---
+
+## Development & testing
+
+The project includes a full offline test harness — no Outlook or Active Directory required.
+
+### Run all tests
+
+```powershell
+.\tests\Run-Tests.ps1
+```
+
+### Sandbox mode
+
+Launch the app with mock data (3 mailboxes, 8 AD users, realistic folder permissions):
+
+```powershell
+.\tests\Start-Sandbox.ps1
+```
+
+Use `-NoTeardown` to keep the sandbox environment after closing for inspection.
+
+### Test structure
+
+| File | What it tests |
+|---|---|
+| `SignatureManager.Tests.ps1` | Signature CRUD, registry operations, export/import |
+| `PermissionsManager.Tests.ps1` | Account enumeration, folder permissions, AD search, ancestor auto-grant |
+| `Ui.Tests.ps1` | WPF UI automation — create/rename/delete signatures, assign/unassign, preview |
+
+Tests use mock COM objects and a sandbox registry at `HKCU:\Software\outlookmAnAger-TEST` so nothing touches your real Outlook data.
+
+---
+
+## Project structure
+
+```
+src/
+  PrettyConfMan.ps1        # App launcher
+  MainWindow.xaml           # WPF layout
+  Ui.ps1                    # UI code-behind
+  SignatureManager.psm1     # Signature file/registry operations
+  PermissionsManager.psm1   # Outlook COM permissions + AD search
+  Theme.ps1                 # Theme definitions
+  Language.ps1              # EN/DE translations
+  extras/                   # Easter egg scripts
+tests/
+  Run-Tests.ps1             # Run full Pester suite
+  Start-Sandbox.ps1         # Launch app with mock data
+  UiTestHelper.psm1         # WPF UI test infrastructure
+  Mocks/                    # Mock Outlook COM + AD objects
+  fixtures/                 # Test signature files + registry data
+```
 
 ---
 
