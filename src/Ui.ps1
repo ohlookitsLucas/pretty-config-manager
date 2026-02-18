@@ -6,7 +6,7 @@ $script:extrasProcs = @{}
 $script:SettingsPath = Join-Path $env:APPDATA 'outlookmAnAger\settings.json'
 
 function Load-Settings {
-    $defaults = [PSCustomObject]@{ Theme = 'Light'; Language = 'en' }
+    $defaults = [PSCustomObject]@{ Theme = 'Light'; Language = 'de' }
     if (-not (Test-Path $script:SettingsPath)) { return $defaults }
     try {
         $obj = Get-Content -Path $script:SettingsPath -Raw -Encoding UTF8 | ConvertFrom-Json

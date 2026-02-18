@@ -42,7 +42,7 @@ function Initialize-PermissionsTab {
 
     # Reusable: refresh mailbox list — updates $script:permAllAccounts (set by coordinator)
     # and re-binds both mailbox list controls
-    $refreshPermMailboxes = {
+    $script:refreshPermMailboxes = {
         $script:permAllAccounts = @(Get-SignedInAccounts)
         $script:permLbMailboxes.ItemsSource = $null
         $script:permLbMailboxes.ItemsSource = $script:permAllAccounts
@@ -328,7 +328,7 @@ function Initialize-PermissionsTab {
     # ── Refresh mailboxes button ─────────────────────────────────────────────
     $btnRefreshPerm.Add_Click({
         try {
-            & $refreshPermMailboxes
+            & $script:refreshPermMailboxes
             $script:permLbFolders.ItemsSource      = $null
             $script:permDgPerms.ItemsSource        = $null
             $script:permSelectedFolder             = $null
