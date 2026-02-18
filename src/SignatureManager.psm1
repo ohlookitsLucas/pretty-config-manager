@@ -21,10 +21,19 @@
       Reply Signature = <name>
 #>
 
+# Detect highest installed Office version dynamically; fall back to 16.0
+$script:OutlookVer = '16.0'
+$_officeBase = 'HKCU:\Software\Microsoft\Office'
+if (Test-Path $_officeBase) {
+    $_found = Get-ChildItem $_officeBase -ErrorAction SilentlyContinue |
+        Where-Object { $_.PSChildName -match '^\d+\.\d+$' } |
+        Sort-Object { [double]$_.PSChildName } -Descending |
+        Select-Object -First 1
+    if ($_found) { $script:OutlookVer = $_found.PSChildName }
+}
 $script:SigPath      = Join-Path $env:APPDATA 'Microsoft\Signatures'
-$script:RegBase      = 'HKCU:\Software\Microsoft\Office\16.0\Common\MailSettings'
-$script:ProfilesBase = 'HKCU:\Software\Microsoft\Office\16.0\Outlook\Profiles'
-$script:OutlookVer   = '16.0'
+$script:RegBase      = "HKCU:\Software\Microsoft\Office\$($script:OutlookVer)\Common\MailSettings"
+$script:ProfilesBase = "HKCU:\Software\Microsoft\Office\$($script:OutlookVer)\Outlook\Profiles"
 $script:LogFile      = Join-Path $env:APPDATA 'outlookmAnAger\sigmanager.log'
 $script:BackupDir    = Join-Path $env:APPDATA 'outlookmAnAger\registry-backups'
 
@@ -321,6 +330,8 @@ function Get-SignatureAssignments {
                     if ([string]::IsNullOrEmpty($smtp) -and $acctProps.PSObject.Properties['Email']) {
                         $smtp = $acctProps.Email
                     }
+                    # Skip non-email registry entries (transport/service subkeys with no valid SMTP)
+                    if ([string]::IsNullOrEmpty($smtp)) { return }
                     $displayName = if ($acctProps.'Display Name') { $acctProps.'Display Name' } else { $smtp }
                     $perAccount += [PSCustomObject]@{
                         AccountName    = $displayName
@@ -332,6 +343,28 @@ function Get-SignatureAssignments {
                 }
             }
         }
+    }
+
+    # If registry yielded no per-account entries (e.g. delegated/shared mailboxes that
+    # aren't full Outlook accounts and have no profile subkeys), fall back to the live
+    # Outlook COM object — same source the Permissions tab uses.
+    if ($perAccount.Count -eq 0) {
+        try {
+            $ol = New-Object -ComObject Outlook.Application -ErrorAction Stop
+            $ns = $ol.GetNameSpace('MAPI')
+            for ($i = 1; $i -le $ns.Accounts.Count; $i++) {
+                $acc  = $ns.Accounts.Item($i)
+                $smtp = ''; try { $smtp = $acc.SmtpAddress } catch {}
+                if ([string]::IsNullOrEmpty($smtp)) { continue }
+                $perAccount += [PSCustomObject]@{
+                    AccountName    = $acc.DisplayName
+                    SmtpAddress    = $smtp
+                    NewSignature   = ''
+                    ReplySignature = ''
+                    RegistryPath   = $script:RegBase
+                }
+            }
+        } catch {}
     }
 
     # Only expose the global (Default) entry when real accounts exist

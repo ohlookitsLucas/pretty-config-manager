@@ -5,12 +5,10 @@ function Initialize-WizardTab {
     )
 
     # -- Control references --
-    $btnGenerateOverview = $Window.FindName('BtnGenerateOverview')
-    $panelPermReport     = $Window.FindName('PanelPermReport')
     $panelPermReportCnt  = $Window.FindName('PanelPermReportContent')
     $lbWizMailboxes      = $Window.FindName('LbWizMailboxes')
     $txtWizUserSearch    = $Window.FindName('TxtWizUserSearch')
-    $popWizAdResults     = $Window.FindName('PopWizAdResults')
+    $borderWizAdResults  = $Window.FindName('BorderWizAdResults')
     $lbWizAdResults      = $Window.FindName('LbWizAdResults')
     $panelWizSelectedUsers = $Window.FindName('PanelWizSelectedUsers')
     $panelWizFolders     = $Window.FindName('PanelWizFolders')
@@ -19,12 +17,10 @@ function Initialize-WizardTab {
     $txtWizResult        = $Window.FindName('TxtWizResult')
 
     # Easy tab script-scope refs
-    $script:wizBtnGenerateOverview   = $btnGenerateOverview
-    $script:wizPanelPermReport       = $panelPermReport
     $script:wizPanelPermReportCnt    = $panelPermReportCnt
     $script:wizLbMailboxes           = $lbWizMailboxes
     $script:wizTxtUserSearch         = $txtWizUserSearch
-    $script:wizPopAdResults          = $popWizAdResults
+    $script:wizBorderAdResults       = $borderWizAdResults
     $script:wizLbAdResults           = $lbWizAdResults
     $script:wizPanelSelectedUsers    = $panelWizSelectedUsers
     $script:wizPanelFolders          = $panelWizFolders
@@ -32,7 +28,7 @@ function Initialize-WizardTab {
     $script:wizPanelSummary          = $panelWizSummary
     $script:wizTxtResult             = $txtWizResult
 
-    # Bind mailbox list (data already loaded by coordinator into $script:permAllAccounts)
+    # Bind mailbox list — $script:permAllAccounts is already OG-filtered by Initialize-PermissionsTab
     $lbWizMailboxes.ItemsSource = $script:permAllAccounts
 
     # ── Wizard state ──────────────────────────────────────────────────────────
@@ -72,6 +68,7 @@ function Initialize-WizardTab {
         $script:wizFolderCheckboxes = @()
         if ($null -ne $script:wizLbMailboxes) { $script:wizLbMailboxes.SelectedIndex = -1 }
         if ($null -ne $script:wizTxtUserSearch) { $script:wizTxtUserSearch.Text = '' }
+        if ($null -ne $script:wizBorderAdResults) { $script:wizBorderAdResults.Visibility = 'Collapsed' }
         if ($null -ne $script:wizPanelSelectedUsers) { $script:wizPanelSelectedUsers.Children.Clear() }
         if ($null -ne $script:wizPanelFolders) { $script:wizPanelFolders.Children.Clear() }
         if ($null -ne $script:wizPanelPermLevels) { $script:wizPanelPermLevels.Children.Clear() }
@@ -81,108 +78,126 @@ function Initialize-WizardTab {
         Show-WizStep 1
     }
 
-    # ── Overview: Generate button ──────────────────────────────────────────────
-    $btnGenerateOverview.Add_Click({
-        $script:wizPanelPermReport.Visibility = 'Visible'
+    # ── Overview: render collapsible per-mailbox sections ─────────────────────
+    function script:Render-PermOverview {
         $script:wizPanelPermReportCnt.Children.Clear()
         try {
             $overview = Get-PermissionsOverview
-            $hasAny = $false
-            foreach ($acct in $overview) {
-                if ($acct.Entries.Count -eq 0) { continue }
-                $hasAny = $true
-                # Mailbox header
-                $hdr = New-Object System.Windows.Controls.TextBlock
-                $hdr.Text       = "$($acct.Mailbox) ($($acct.SmtpAddress))"
-                $hdr.FontWeight = [System.Windows.FontWeights]::SemiBold
-                $hdr.FontSize   = 13
-                $hdr.Margin     = [System.Windows.Thickness]::new(0, 8, 0, 4)
-                $hdr.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'AccentBrush')
-                $script:wizPanelPermReportCnt.Children.Add($hdr) | Out-Null
-
-                foreach ($entry in $acct.Entries) {
-                    # User name
-                    $userLbl = New-Object System.Windows.Controls.TextBlock
-                    $userLbl.Text       = $entry.User
-                    $userLbl.FontWeight = [System.Windows.FontWeights]::SemiBold
-                    $userLbl.FontSize   = 12
-                    $userLbl.Margin     = [System.Windows.Thickness]::new(12, 4, 0, 2)
-                    $userLbl.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextPrimaryBrush')
-                    $script:wizPanelPermReportCnt.Children.Add($userLbl) | Out-Null
-
-                    foreach ($f in $entry.Folders) {
-                        # Row: folder name, level, remove button
-                        $row = New-Object System.Windows.Controls.StackPanel
-                        $row.Orientation = [System.Windows.Controls.Orientation]::Horizontal
-                        $row.Margin      = [System.Windows.Thickness]::new(24, 1, 0, 1)
-
-                        $fLabel = New-Object System.Windows.Controls.TextBlock
-                        $fLabel.Text  = $f.FolderName
-                        $fLabel.Width = 180
-                        $fLabel.FontSize = 11
-                        $fLabel.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextPrimaryBrush')
-                        $row.Children.Add($fLabel) | Out-Null
-
-                        $lLabel = New-Object System.Windows.Controls.TextBlock
-                        $lLabel.Text  = $f.Level
-                        $lLabel.Width = 160
-                        $lLabel.FontSize = 11
-                        $lLabel.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
-                        $row.Children.Add($lLabel) | Out-Null
-
-                        # Remove button with two-click confirm
-                        $rmBtn = New-Object System.Windows.Controls.Button
-                        $rmBtn.Content  = [char]0x2715  # ✕
-                        $rmBtn.FontSize = 10
-                        $rmBtn.Padding  = [System.Windows.Thickness]::new(4, 1, 4, 1)
-                        $rmBtn.Tag      = [PSCustomObject]@{
-                            EntryID  = $f.EntryID
-                            StoreID  = $f.StoreID
-                            User     = $entry.User
-                            Row      = $row
-                            Pending  = $false
-                        }
-                        $rmBtn.SetResourceReference([System.Windows.Controls.Control]::StyleProperty, 'SecondaryButton')
-                        $rmBtn.Add_Click({
-                            $tag = $this.Tag
-                            if (-not $tag.Pending) {
-                                # First click — confirm
-                                $tag.Pending = $true
-                                $this.Content = Get-Str 'OverviewRemoveConfirm'
-                                $this.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, 'AccentBrush')
-                                return
-                            }
-                            # Second click — remove
-                            try {
-                                Remove-FolderPermission -EntryID $tag.EntryID -StoreID $tag.StoreID -User $tag.User
-                                $parent = $tag.Row.Parent
-                                if ($null -ne $parent) { $parent.Children.Remove($tag.Row) }
-                                Set-Status (Get-Str 'OverviewRemoved' $tag.User $tag.EntryID)
-                            } catch {
-                                Set-Status (Get-Str 'OverviewRemoveError' $_)
-                            }
-                        })
-                        $row.Children.Add($rmBtn) | Out-Null
-                        $script:wizPanelPermReportCnt.Children.Add($row) | Out-Null
-                    }
-                }
-            }
-            if (-not $hasAny) {
+            if ($overview.Count -eq 0) {
                 $empty = New-Object System.Windows.Controls.TextBlock
-                $empty.Text       = Get-Str 'OverviewEmpty'
-                $empty.FontStyle  = [System.Windows.FontStyles]::Italic
-                $empty.FontSize   = 12
-                $empty.Margin     = [System.Windows.Thickness]::new(0, 4, 0, 0)
+                $empty.Text      = Get-Str 'OverviewEmpty'
+                $empty.FontStyle = [System.Windows.FontStyles]::Italic
+                $empty.FontSize  = 12
+                $empty.Margin    = [System.Windows.Thickness]::new(0, 4, 0, 0)
                 $empty.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
                 $script:wizPanelPermReportCnt.Children.Add($empty) | Out-Null
+                return
+            }
+
+            foreach ($acct in $overview) {
+                # Detail panel (initially collapsed) — built before the header button
+                $detail = New-Object System.Windows.Controls.StackPanel
+                $detail.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 4)
+                $detail.Visibility = 'Collapsed'
+
+                if ($acct.Entries.Count -eq 0) {
+                    $none = New-Object System.Windows.Controls.TextBlock
+                    $none.Text      = Get-Str 'OverviewNoCustomPerms'
+                    $none.FontStyle = [System.Windows.FontStyles]::Italic
+                    $none.FontSize  = 11
+                    $none.Margin    = [System.Windows.Thickness]::new(12, 2, 0, 4)
+                    $none.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
+                    $detail.Children.Add($none) | Out-Null
+                } else {
+                    foreach ($entry in $acct.Entries) {
+                        $userLbl = New-Object System.Windows.Controls.TextBlock
+                        $userLbl.Text       = $entry.User
+                        $userLbl.FontWeight = [System.Windows.FontWeights]::SemiBold
+                        $userLbl.FontSize   = 12
+                        $userLbl.Margin     = [System.Windows.Thickness]::new(12, 4, 0, 2)
+                        $userLbl.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextPrimaryBrush')
+                        $detail.Children.Add($userLbl) | Out-Null
+
+                        foreach ($f in $entry.Folders) {
+                            $row = New-Object System.Windows.Controls.StackPanel
+                            $row.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+                            $row.Margin      = [System.Windows.Thickness]::new(24, 1, 0, 1)
+
+                            $fLabel = New-Object System.Windows.Controls.TextBlock
+                            $fLabel.Text     = $f.FolderName
+                            $fLabel.Width    = 180
+                            $fLabel.FontSize = 11
+                            $fLabel.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextPrimaryBrush')
+                            $row.Children.Add($fLabel) | Out-Null
+
+                            $lLabel = New-Object System.Windows.Controls.TextBlock
+                            $lLabel.Text     = $f.Level
+                            $lLabel.Width    = 160
+                            $lLabel.FontSize = 11
+                            $lLabel.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
+                            $row.Children.Add($lLabel) | Out-Null
+
+                            $rmBtn = New-Object System.Windows.Controls.Button
+                            $rmBtn.Content  = [char]0x2715
+                            $rmBtn.FontSize = 10
+                            $rmBtn.Padding  = [System.Windows.Thickness]::new(4, 1, 4, 1)
+                            $rmBtn.Tag      = [PSCustomObject]@{
+                                EntryID = $f.EntryID; StoreID = $f.StoreID
+                                User = $entry.User; Row = $row; Pending = $false
+                            }
+                            $rmBtn.SetResourceReference([System.Windows.Controls.Control]::StyleProperty, 'SecondaryButton')
+                            $rmBtn.Add_Click({
+                                $tag = $this.Tag
+                                if (-not $tag.Pending) {
+                                    $tag.Pending = $true
+                                    $this.Content = Get-Str 'OverviewRemoveConfirm'
+                                    $this.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, 'AccentBrush')
+                                    return
+                                }
+                                try {
+                                    Remove-FolderPermission -EntryID $tag.EntryID -StoreID $tag.StoreID -User $tag.User
+                                    $parent = $tag.Row.Parent
+                                    if ($null -ne $parent) { $parent.Children.Remove($tag.Row) }
+                                    Set-Status (Get-Str 'OverviewRemoved' $tag.User $tag.EntryID)
+                                } catch {
+                                    Set-Status (Get-Str 'OverviewRemoveError' $_)
+                                }
+                            })
+                            $row.Children.Add($rmBtn) | Out-Null
+                            $detail.Children.Add($row) | Out-Null
+                        }
+                    }
+                }
+
+                # Clickable mailbox header — toggles detail visibility
+                $hdrBtn = New-Object System.Windows.Controls.Button
+                $hdrBtn.Content             = "$($acct.Mailbox) ($($acct.SmtpAddress))"
+                $hdrBtn.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Stretch
+                $hdrBtn.HorizontalContentAlignment = [System.Windows.HorizontalAlignment]::Left
+                $hdrBtn.Margin              = [System.Windows.Thickness]::new(0, 4, 0, 0)
+                $hdrBtn.Padding             = [System.Windows.Thickness]::new(4, 3, 4, 3)
+                $hdrBtn.Tag                 = $detail
+                $hdrBtn.SetResourceReference([System.Windows.Controls.Control]::StyleProperty, 'SecondaryButton')
+                $hdrBtn.Add_Click({
+                    $d = $this.Tag
+                    $d.Visibility = if ($d.Visibility -eq 'Visible') { 'Collapsed' } else { 'Visible' }
+                })
+                $script:wizPanelPermReportCnt.Children.Add($hdrBtn) | Out-Null
+                $script:wizPanelPermReportCnt.Children.Add($detail) | Out-Null
             }
             Set-Status (Get-Str 'OverviewGenerated' $overview.Count)
         } catch {
             $err = New-Object System.Windows.Controls.TextBlock
-            $err.Text = "Error: $_"
+            $err.Text       = "Error: $_"
             $err.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#E74C3C')
             $script:wizPanelPermReportCnt.Children.Add($err) | Out-Null
         }
+    }
+
+    # ── Refresh mailboxes button (Easy tab) ────────────────────────────────────
+    $Window.FindName('BtnRefreshEasyMailboxes').Add_Click({
+        & $script:refreshPermMailboxes
+        Render-PermOverview
     })
 
     # ── Wizard Step 1: Next → validate mailbox selection ───────────────────────
@@ -209,20 +224,20 @@ function Initialize-WizardTab {
             $script:wizLbAdResults.ItemsSource = $null
             if ($hits.Count -gt 0) {
                 $script:wizLbAdResults.ItemsSource = $hits
-                $script:wizPopAdResults.IsOpen = $true
+                $script:wizBorderAdResults.Visibility = 'Visible'
             } else {
-                $script:wizPopAdResults.IsOpen = $false
+                $script:wizBorderAdResults.Visibility = 'Collapsed'
                 Set-WizStatus 2 (Get-Str 'PermNoAdMatches') ''
             }
         } catch {
-            $script:wizPopAdResults.IsOpen = $false
+            $script:wizBorderAdResults.Visibility = 'Collapsed'
         }
     }
 
     $txtWizUserSearch.Add_TextChanged({
         $q = $script:wizTxtUserSearch.Text.Trim()
         if ($null -ne $script:wizAdTimer) { $script:wizAdTimer.Stop(); $script:wizAdTimer = $null }
-        if ($q.Length -lt 2) { $script:wizPopAdResults.IsOpen = $false; return }
+        if ($q.Length -lt 3) { $script:wizBorderAdResults.Visibility = 'Collapsed'; return }
         $script:wizAdLastQuery = $q
         $t = New-Object System.Windows.Threading.DispatcherTimer
         $t.Interval = [System.TimeSpan]::FromMilliseconds(350)
@@ -239,7 +254,8 @@ function Initialize-WizardTab {
         if ($script:wizSelectedUsers.Contains($value)) { return }
         $script:wizSelectedUsers.Add($value)
         $script:wizTxtUserSearch.Text = ''
-        $script:wizPopAdResults.IsOpen = $false
+        $script:wizBorderAdResults.Visibility = 'Collapsed'
+        $script:wizLbAdResults.SelectedIndex  = -1
         Set-WizStatus 2 ''
         # Build removable user pill
         $pill = New-Object System.Windows.Controls.StackPanel
@@ -476,4 +492,5 @@ function Initialize-WizardTab {
     $Window.FindName('BtnWizReset').Add_Click({ Reset-Wizard })
 
     Reset-Wizard
+    Render-PermOverview
 }

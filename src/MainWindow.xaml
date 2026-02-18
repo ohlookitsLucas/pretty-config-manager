@@ -6,16 +6,16 @@
         FontFamily="Segoe UI" FontSize="13">
 
   <Window.Resources>
-    <!-- ═══ Color Palette ═══ -->
-    <SolidColorBrush x:Key="BgBrush" Color="#1E1E2E"/>
-    <SolidColorBrush x:Key="SurfaceBrush" Color="#2A2A3C"/>
-    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#33334A"/>
-    <SolidColorBrush x:Key="BorderBrush" Color="#3E3E55"/>
-    <SolidColorBrush x:Key="AccentBrush" Color="#7C6FE0"/>
-    <SolidColorBrush x:Key="AccentHoverBrush" Color="#9589E8"/>
-    <SolidColorBrush x:Key="AccentSubtleBrush" Color="#2E2B4A"/>
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#EAEAEF"/>
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#9898A8"/>
+    <!-- ═══ Color Palette (Light theme defaults — overridden by Apply-Theme at startup) ═══ -->
+    <SolidColorBrush x:Key="BgBrush" Color="#D6E6F5"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#E4EEF8"/>
+    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#CDDFF0"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#A8C4DD"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#5A8FC4"/>
+    <SolidColorBrush x:Key="AccentHoverBrush" Color="#3D78B0"/>
+    <SolidColorBrush x:Key="AccentSubtleBrush" Color="#C2D6EA"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A2333"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#3D5872"/>
     <SolidColorBrush x:Key="TextOnAccentBrush" Color="#FFFFFF"/>
 
     <!-- ═══ Button Style ═══ -->
@@ -400,36 +400,260 @@
       </Style.Triggers>
     </Style>
 
+    <!-- ═══ NavButton Style (top-right navigation bar) ═══ -->
+    <Style x:Key="NavButton" TargetType="Button">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+      <Setter Property="BorderThickness" Value="0,0,0,2"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Padding" Value="16,6"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    Padding="{TemplateBinding Padding}"
+                    SnapsToDevicePixels="True">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource SurfaceHoverBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- ═══ NavMenuItemButton Style (dropdown menu items) ═══ -->
+    <Style x:Key="NavMenuItemButton" TargetType="Button">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="10,7"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd"
+                    Background="{TemplateBinding Background}"
+                    CornerRadius="4"
+                    Padding="{TemplateBinding Padding}"
+                    SnapsToDevicePixels="True">
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
   </Window.Resources>
 
-  <Grid Margin="16" ClipToBounds="True">
+  <Grid Margin="16,8,16,10" ClipToBounds="True">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
-      <RowDefinition Height="8"/>
+      <RowDefinition Height="4"/>
       <RowDefinition Height="*"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
-    <!-- ═══ Header (compact) ═══ -->
-    <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
-      <TextBlock Text="Pretty Configuration Manager" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-      <TextBlock Text="  &#xB7;  Mail Utilities" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-    </StackPanel>
+    <!-- ═══ Header bar with navigation ═══ -->
+    <Grid Grid.Row="0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
 
-    <!-- ═══ Tab Control ═══ -->
-    <TabControl Grid.Row="2" Name="MainTabs">
+      <!-- Left: App title -->
+      <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+        <TextBlock Text="Pretty Configuration Manager" FontSize="17" FontWeight="SemiBold" FontStyle="Italic" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
+        <TextBlock Text="  &#xB7;  " FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+        <TextBlock Name="LnkReadme" Text="(view Readme)" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Cursor="Hand">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock">
+              <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter Property="TextDecorations" Value="Underline"/>
+                </Trigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+        </TextBlock>
+      </StackPanel>
 
-      <!-- ─── Signatures Tab ─── -->
-      <TabItem Header="Signatures" Name="TabSignatures">
-        <Grid Margin="0,8,0,0">
+      <!-- Right: Navigation buttons -->
+      <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+        <Button Name="NavBtnOutlook"  Content="Outlook"  Style="{StaticResource NavButton}"/>
+        <Button Name="NavBtnSkype"    Content="Skype"    Style="{StaticResource NavButton}" Visibility="Collapsed"/>
+        <Button Name="NavBtnMUD"      Content="MUD"      Style="{StaticResource NavButton}" Visibility="Collapsed"/>
+        <Button Name="NavBtnExtras"   Content="Extras"   Style="{StaticResource NavButton}" Visibility="Collapsed"/>
+        <Button Name="NavBtnSettings" Content="&#x2699;" Style="{StaticResource NavButton}" FontSize="18" Padding="10,4" ToolTip="Settings"/>
+      </StackPanel>
+
+      <!-- Outlook dropdown menu -->
+      <Popup Name="PopOutlookMenu" PlacementTarget="{Binding ElementName=NavBtnOutlook}"
+             Placement="Bottom" StaysOpen="True" AllowsTransparency="True"
+             HorizontalOffset="-45">
+        <Border Name="PopOutlookMenuOuter" Background="Transparent" Padding="0,2,0,0">
+          <Border Background="{DynamicResource SurfaceBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1.5" CornerRadius="6" Padding="4">
+            <StackPanel MinWidth="140">
+              <Button Name="NavMenuSignatures"  Content="Signatures"  Style="{StaticResource NavMenuItemButton}"/>
+              <Button Name="NavMenuPermissions" Content="Permissions" Style="{StaticResource NavMenuItemButton}"/>
+              <Button Name="NavMenuDev"         Content="Dev"         Style="{StaticResource NavMenuItemButton}" Visibility="Collapsed"/>
+            </StackPanel>
+          </Border>
+        </Border>
+      </Popup>
+
+      <!-- Settings dropdown panel -->
+      <Popup Name="PopSettingsMenu" PlacementTarget="{Binding ElementName=NavBtnSettings}"
+             Placement="Bottom" StaysOpen="True" AllowsTransparency="True"
+             HorizontalOffset="-280">
+        <Border Name="PopSettingsMenuOuter" Background="Transparent" Padding="0,2,0,0">
+          <Border Background="{DynamicResource SurfaceBrush}"
+                  BorderBrush="{DynamicResource BorderBrush}"
+                  BorderThickness="1.5" CornerRadius="8" Padding="16,12" MinWidth="340">
+            <StackPanel>
+
+              <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Name="TxtLblColourTheme" Grid.Column="0" Text="Colour theme"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           VerticalAlignment="Center"/>
+                <ListBox Name="LbThemeSelector" Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="0">
+                  <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" VerticalAlignment="Center"/>
+                    </ItemsPanelTemplate>
+                  </ListBox.ItemsPanel>
+                  <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                      <Setter Property="Padding"                    Value="0"/>
+                      <Setter Property="Margin"                     Value="0,0,6,0"/>
+                      <Setter Property="Background"                 Value="Transparent"/>
+                      <Setter Property="BorderThickness"            Value="2"/>
+                      <Setter Property="BorderBrush"                Value="Transparent"/>
+                      <Setter Property="FocusVisualStyle"           Value="{x:Null}"/>
+                      <Setter Property="IsTabStop"                  Value="False"/>
+                      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                      <Setter Property="VerticalContentAlignment"   Value="Center"/>
+                      <Setter Property="Cursor"                     Value="Hand"/>
+                      <Setter Property="Template">
+                        <Setter.Value>
+                          <ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="Outer" BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8" Padding="2" Background="Transparent">
+                              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                              <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Outer" Property="BorderBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+                              </Trigger>
+                              <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Outer" Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}"/>
+                              </Trigger>
+                            </ControlTemplate.Triggers>
+                          </ControlTemplate>
+                        </Setter.Value>
+                      </Setter>
+                    </Style>
+                  </ListBox.ItemContainerStyle>
+                  <ListBoxItem Tag="Light"  ToolTip="Light">
+                    <Border Width="26" Height="26" CornerRadius="6" Background="#D6E6F5"/>
+                  </ListBoxItem>
+                  <ListBoxItem Tag="Dark"   ToolTip="Dark">
+                    <Border Width="26" Height="26" CornerRadius="6" Background="#7C6FE0"/>
+                  </ListBoxItem>
+                  <ListBoxItem Tag="Green"  ToolTip="Green">
+                    <Border Width="26" Height="26" CornerRadius="6" Background="#4E8A6E"/>
+                  </ListBoxItem>
+                  <ListBoxItem Tag="Maroon" ToolTip="Maroon" Margin="0">
+                    <Border Width="26" Height="26" CornerRadius="6" Background="#8A4E5E"/>
+                  </ListBoxItem>
+                </ListBox>
+              </Grid>
+
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Name="TxtLblLanguage" Grid.Column="0" Text="Language"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           VerticalAlignment="Center"/>
+                <ComboBox Name="CbLanguageSelector" Grid.Column="2"
+                          Background="{DynamicResource SurfaceBrush}"
+                          Foreground="{DynamicResource TextPrimaryBrush}"
+                          BorderBrush="{DynamicResource BorderBrush}"
+                          BorderThickness="1" Padding="8,4" MinWidth="120">
+                  <ComboBoxItem Content="English" Tag="en"/>
+                  <ComboBoxItem Content="Deutsch" Tag="de"/>
+                </ComboBox>
+              </Grid>
+
+              <!-- ══ About ══ -->
+              <TextBlock Name="BtnAbout" Text="About" FontSize="11"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         HorizontalAlignment="Center" Margin="0,12,0,0" Cursor="Hand">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                    <Style.Triggers>
+                      <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="TextDecorations" Value="Underline"/>
+                      </Trigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
+
+            </StackPanel>
+          </Border>
+        </Border>
+      </Popup>
+
+    </Grid>
+
+    <!-- ═══ Content Area ═══ -->
+    <Grid Grid.Row="2">
+
+      <!-- ── Outlook section (Signatures + Permissions, toggled via dropdown) ── -->
+      <Grid Name="PanelOutlookContent" Visibility="Visible">
+
+        <!-- ─── Signatures view ─── -->
+        <Grid Name="PanelSignaturesView" Visibility="Visible">
+          <Grid Margin="0,8,0,0">
           <Grid.RowDefinitions>
-            <!-- Main content area -->
+            <!-- Main content area (left + right boxes) -->
             <RowDefinition Height="*"/>
             <!-- Bottom bar -->
             <RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
 
-          <!-- ══ MAIN CONTENT: Left (mailboxes) + Right (preview) ══ -->
+          <!-- ══ MAIN CONTENT: Left (mailboxes) + Right (preview) in matched boxes ══ -->
           <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*"/>
@@ -437,65 +661,52 @@
               <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- ── LEFT: Mailbox / Signature list ── -->
-            <Grid Grid.Column="0">
-              <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="4"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="6"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="6"/>
-                <RowDefinition Height="Auto"/>
-              </Grid.RowDefinitions>
+            <!-- ── LEFT BOX: Mailbox / Signature list ── -->
+            <Border Grid.Column="0" CornerRadius="8"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                    Background="Transparent" Padding="10">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="*"/>
+                  <RowDefinition Height="8"/>
+                  <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-              <!-- Section label -->
-              <TextBlock Grid.Row="0" Name="TxtLblSignatures" Text="SIGNATURES" FontWeight="SemiBold" FontSize="11"
-                         Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,0"/>
+                <!-- Mailbox + signature list -->
+                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                  <StackPanel Name="PanelInboxList"/>
+                </ScrollViewer>
 
-              <!-- Action buttons -->
-              <StackPanel Grid.Row="2" Orientation="Horizontal">
-                <Button Name="BtnNewSignature"    Content="+ New"
-                        Style="{DynamicResource SecondaryButton}" Padding="10,5" FontSize="11" Margin="0,0,6,0"/>
-                <Button Name="BtnRenameSignature" Content="Rename"
-                        Style="{DynamicResource SecondaryButton}" Padding="10,5" FontSize="11" Margin="0,0,6,0" Tag="Rename"/>
-                <Button Name="BtnDeleteSignature" Content="Delete"
-                        Style="{DynamicResource SecondaryButton}" Padding="10,5" FontSize="11" Tag="Delete"/>
-              </StackPanel>
+                <!-- Action buttons centered at bottom -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                  <Button Name="BtnRefreshMailboxes" Content="&#x21BB;"
+                          Style="{DynamicResource SecondaryButton}"
+                          Width="28" Height="28" Padding="0" FontSize="14"
+                          ToolTip="Refresh mailboxes" Margin="0,0,6,0"/>
+                  <Button Name="BtnNewSignature"    Content="New"
+                          Style="{DynamicResource SecondaryButton}" Padding="14,5" FontSize="11" Margin="0,0,6,0"/>
+                  <Button Name="BtnRenameSignature" Content="Rename"
+                          Style="{DynamicResource SecondaryButton}" Padding="14,5" FontSize="11" Margin="0,0,6,0" Tag="Rename"/>
+                  <Button Name="BtnDeleteSignature" Content="Delete"
+                          Style="{DynamicResource SecondaryButton}" Padding="14,5" FontSize="11" Tag="Delete"/>
+                </StackPanel>
+              </Grid>
+            </Border>
 
-              <!-- Mailbox + signature list -->
-              <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Name="PanelInboxList"/>
-              </ScrollViewer>
+            <!-- ── RIGHT BOX: Preview ── -->
+            <Border Grid.Column="2" CornerRadius="8"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                    Background="Transparent" Padding="10">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="*"/>
+                  <RowDefinition Height="6"/>
+                  <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-              <!-- Edit / Reload buttons below the list (shown when a sig is selected) -->
-              <StackPanel Grid.Row="6" Orientation="Horizontal">
-                <Button Name="BtnEditSignature" Content="Edit in Outlook"
-                        Style="{DynamicResource SecondaryButton}" Padding="10,5" FontSize="11"
-                        Margin="0,0,6,0" Visibility="Collapsed"/>
-                <Button Name="BtnReloadPreview" Content="Reload preview"
-                        Style="{DynamicResource SecondaryButton}" Padding="10,5" FontSize="11"
-                        Visibility="Collapsed"/>
-              </StackPanel>
-            </Grid>
-
-            <!-- ── RIGHT: Preview ── -->
-            <Grid Grid.Column="2">
-              <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="8"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="6"/>
-                <RowDefinition Height="Auto"/>
-              </Grid.RowDefinitions>
-
-              <TextBlock Grid.Row="0" Name="TxtLblPreview" Text="PREVIEW" FontWeight="SemiBold" FontSize="11"
-                         Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,0"
-                         VerticalAlignment="Center"/>
-
-              <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}"
-                      CornerRadius="8" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
-                <Border Name="PanelPreview" CornerRadius="7" ClipToBounds="True" Background="{DynamicResource BgBrush}">
+                <!-- Preview area -->
+                <Border Grid.Row="0" Name="PanelPreview" CornerRadius="8" ClipToBounds="True"
+                        Background="{DynamicResource BgBrush}">
                   <Grid>
                     <WebBrowser Name="PreviewBrowser" Visibility="Collapsed"/>
                     <!-- Empty state — hidden once a signature is loaded -->
@@ -508,18 +719,34 @@
                                IsHitTestVisible="False"/>
                   </Grid>
                 </Border>
-              </Border>
 
-              <TextBlock Grid.Row="4" Name="TxtSignatureInfo" Text=""
-                         Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
-                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-            </Grid>
+                <!-- Bottom row: Reload + Edit centered together; Info at far right independently -->
+                <Grid Grid.Row="2">
+                  <!-- Buttons centered in the full row width -->
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Button Name="BtnReloadPreview" Content="&#x21BB;"
+                            Style="{DynamicResource SecondaryButton}"
+                            Width="28" Height="28" Padding="0" FontSize="14"
+                            ToolTip="Reload preview" Margin="0,0,6,0"
+                            Visibility="Collapsed"/>
+                    <Button Name="BtnEditSignature" Content="Edit in Outlook"
+                            Style="{DynamicResource SecondaryButton}" Padding="10,5" FontSize="11"
+                            Visibility="Collapsed"/>
+                  </StackPanel>
+                  <!-- Info text floats at the right edge, doesn't affect button centering -->
+                  <TextBlock Name="TxtSignatureInfo" Text=""
+                             Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"
+                             VerticalAlignment="Center" HorizontalAlignment="Right"
+                             TextTrimming="CharacterEllipsis" MaxWidth="200"/>
+                </Grid>
+              </Grid>
+            </Border>
           </Grid>
 
           <!-- ══ BOTTOM BAR: Selected signature + mailbox pills (click to toggle assign) ══ -->
-          <Border Grid.Row="1" Margin="0,10,0,0"
+          <Border Grid.Row="1" Margin="0,10,0,0" CornerRadius="8"
                   Background="{DynamicResource SurfaceBrush}"
-                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
                   Padding="12,8">
             <Grid>
               <Grid.ColumnDefinitions>
@@ -534,56 +761,63 @@
                          VerticalAlignment="Center"
                          TextTrimming="CharacterEllipsis" MaxWidth="200"/>
 
-              <!-- Mailbox pills (click to assign/unassign the selected signature) -->
+              <!-- Mailbox pills (hover to assign/unassign the selected signature) -->
               <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Auto"
                             VerticalScrollBarVisibility="Disabled">
                 <StackPanel Name="PanelCopyTargets" Orientation="Horizontal" VerticalAlignment="Center"/>
               </ScrollViewer>
             </Grid>
           </Border>
-        </Grid>
-      </TabItem>
 
-      <!-- ─── Permissions Tab ─── -->
-      <TabItem Header="Permissions" Name="TabPermissions">
-        <TabControl Name="TabsPermInner" Margin="0,4,0,0">
+
+            </Grid>
+        </Grid>
+
+        <!-- ─── Permissions view ─── -->
+        <Grid Name="PanelPermissionsView" Visibility="Collapsed">
+          <TabControl Name="TabsPermInner" Margin="0,4,0,0">
 
           <!-- ══ Easy sub-tab (default) ══ -->
           <TabItem Header="Easy" Name="TabPermEasy">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,8,0,0">
-              <StackPanel MaxWidth="800">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="12"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
-                <!-- ── Permissions Overview ── -->
-                <TextBlock Name="TxtLblPermOverview" Text="PERMISSIONS OVERVIEW"
-                           FontWeight="SemiBold" FontSize="11"
-                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,8"/>
-                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
-                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                        Padding="16,12" Margin="0,0,0,16">
-                  <StackPanel>
-                    <TextBlock Name="TxtPermOverviewDesc"
-                               Text="See who has access to your mailboxes and calendars at a glance."
-                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
-                               TextWrapping="Wrap" Margin="0,0,0,10"/>
-                    <Button Name="BtnGenerateOverview" Content="Generate overview"
-                            HorizontalAlignment="Left"/>
-                    <Border Name="PanelPermReport" Margin="0,12,0,0" Visibility="Collapsed"
-                            Background="{DynamicResource BgBrush}" CornerRadius="6"
-                            Padding="12,10" MaxHeight="400">
-                      <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel Name="PanelPermReportContent"/>
-                      </ScrollViewer>
-                    </Border>
-                  </StackPanel>
-                </Border>
+                <!-- ── Permissions Overview (left) ── -->
+                <StackPanel Grid.Column="0">
+                  <TextBlock Name="TxtLblPermOverview" Text="PERMISSIONS OVERVIEW"
+                             FontWeight="SemiBold" FontSize="11"
+                             Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,8"/>
+                  <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
+                          BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                          Padding="16,12">
+                    <StackPanel>
+                      <Border Name="PanelPermReport" Visibility="Visible"
+                              Background="{DynamicResource BgBrush}" CornerRadius="6"
+                              Padding="12,10" MaxHeight="400">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                          <StackPanel Name="PanelPermReportContent"/>
+                        </ScrollViewer>
+                      </Border>
+                      <Button Name="BtnRefreshEasyMailboxes" Content="Refresh mailboxes"
+                              Margin="0,10,0,0" HorizontalAlignment="Stretch"
+                              Style="{DynamicResource SecondaryButton}"/>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
 
-                <!-- ── Quick Setup Wizard ── -->
-                <TextBlock Name="TxtLblPermWizard" Text="QUICK SETUP"
-                           FontWeight="SemiBold" FontSize="11"
-                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,8"/>
-                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
-                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                        Padding="16,12" Margin="0,0,0,16">
+                <!-- ── Quick Setup Wizard (right) ── -->
+                <StackPanel Grid.Column="2">
+                  <TextBlock Name="TxtLblPermWizard" Text="QUICK SETUP"
+                             FontWeight="SemiBold" FontSize="11"
+                             Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,8"/>
+                  <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
+                          BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                          Padding="16,12">
                   <StackPanel>
                     <TextBlock Name="TxtWizardDesc"
                                Text="Set up folder permissions step by step."
@@ -618,30 +852,35 @@
                       <TextBlock Name="TxtWizStep2" FontSize="14" FontWeight="SemiBold"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                  Text="Step 2: Choose users you want to give permissions to" Margin="0,0,0,8"/>
-                      <Grid>
+                      <StackPanel>
                         <TextBox Name="TxtWizUserSearch" Tag="Search by name or email..."
                                  ToolTip="Search Active Directory or type an email address directly"/>
-                        <Popup Name="PopWizAdResults" PlacementTarget="{Binding ElementName=TxtWizUserSearch}"
-                               Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
-                          <Border Background="{DynamicResource SurfaceBrush}"
-                                  BorderBrush="{DynamicResource AccentBrush}"
-                                  BorderThickness="1" CornerRadius="6">
-                            <ListBox Name="LbWizAdResults" MaxHeight="180" BorderThickness="0"
-                                     Background="{DynamicResource SurfaceBrush}">
-                              <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                  <StackPanel Margin="0,2">
-                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                    <TextBlock Text="{Binding Mail}" FontSize="11"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                  </StackPanel>
-                                </DataTemplate>
-                              </ListBox.ItemTemplate>
-                            </ListBox>
-                          </Border>
-                        </Popup>
-                      </Grid>
+                        <Border Name="BorderWizAdResults" Visibility="Collapsed" Margin="0,2,0,0"
+                                Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource AccentBrush}"
+                                BorderThickness="1" CornerRadius="4">
+                          <ListBox Name="LbWizAdResults" MaxHeight="200" BorderThickness="0"
+                                   Background="{DynamicResource SurfaceBrush}"
+                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListBox.ItemContainerStyle>
+                              <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="8,2"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                              </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                              <DataTemplate>
+                                <StackPanel Margin="0,1">
+                                  <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12"
+                                             Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                  <TextBlock Text="{Binding Mail}" FontSize="11"
+                                             Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                              </DataTemplate>
+                            </ListBox.ItemTemplate>
+                          </ListBox>
+                        </Border>
+                      </StackPanel>
                       <TextBlock Name="TxtWizSelectedLabel" Text="" FontSize="11" Margin="0,8,0,4"
                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
                       <StackPanel Name="PanelWizSelectedUsers"/>
@@ -702,7 +941,8 @@
 
                   </StackPanel>
                 </Border>
-              </StackPanel>
+                </StackPanel>
+              </Grid>
             </ScrollViewer>
           </TabItem>
 
@@ -732,9 +972,16 @@
 
                 <Grid Grid.Row="2">
                   <ListBox Name="LbMailboxes">
+                    <ListBox.ItemContainerStyle>
+                      <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="Padding" Value="10,6"/>
+                        <Setter Property="Margin"  Value="0"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                      </Style>
+                    </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                       <DataTemplate>
-                        <StackPanel Margin="0,2,0,2">
+                        <StackPanel>
                           <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
                                      Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
                           <TextBlock Text="{Binding SmtpAddress}" FontSize="11"
@@ -763,157 +1010,166 @@
                 <Grid.RowDefinitions>
                   <RowDefinition Height="Auto"/>
                   <RowDefinition Height="6"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="4"/>
                   <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Name="TxtLblFolders" Text="FOLDERS" FontWeight="SemiBold" FontSize="11"
                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,0"/>
 
-                <TextBlock Grid.Row="2" Name="TxtFoldersHint"
-                           Text="Select a mailbox to see its folders"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
-                           FontStyle="Italic" FontSize="11" Margin="2,0,0,0"/>
-
-                <ListBox Grid.Row="4" Name="LbFolders">
-                  <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-                      <Setter Property="Padding" Value="0"/>
-                      <Setter Property="Margin"  Value="0"/>
-                      <Setter Property="MinHeight" Value="20"/>
-                    </Style>
-                  </ListBox.ItemContainerStyle>
-                  <ListBox.ItemTemplate>
-                    <DataTemplate>
-                      <StackPanel Orientation="Horizontal" Margin="{Binding IndentPad}">
-                        <TextBlock Text="{Binding Icon}" FontSize="12"
-                                   FontFamily="Segoe UI Symbol"
-                                   Margin="0,0,5,0" Width="16"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   VerticalAlignment="Center" TextAlignment="Center"/>
-                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
-                                   FontSize="11"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   VerticalAlignment="Center"/>
-                      </StackPanel>
-                    </DataTemplate>
-                  </ListBox.ItemTemplate>
-                </ListBox>
+                <Grid Grid.Row="2">
+                  <ListBox Name="LbFolders">
+                    <ListBox.ItemContainerStyle>
+                      <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Margin"  Value="0"/>
+                        <Setter Property="MinHeight" Value="20"/>
+                      </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                      <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Margin="{Binding IndentPad}">
+                          <TextBlock Text="{Binding Icon}" FontSize="12"
+                                     FontFamily="Segoe UI Symbol"
+                                     Margin="0,0,5,0" Width="16"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"
+                                     VerticalAlignment="Center" TextAlignment="Center"/>
+                          <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                                     FontSize="11"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"
+                                     VerticalAlignment="Center"/>
+                        </StackPanel>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                  <!-- Empty state overlay — hidden when folders are loaded -->
+                  <TextBlock Name="TxtFoldersHint"
+                             Text="Select a mailbox to see its folders"
+                             TextWrapping="Wrap"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             FontSize="12" FontStyle="Italic"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Margin="12" Opacity="0.7"
+                             IsHitTestVisible="False"/>
+                </Grid>
               </Grid>
 
               <!-- ── Column 4: People & permissions ── -->
               <Grid Grid.Column="4" Name="PanelPermRight">
                 <Grid.RowDefinitions>
                   <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="6"/>
+                  <RowDefinition Height="*" MinHeight="80"/>
                   <RowDefinition Height="10"/>
                   <RowDefinition Height="Auto"/>
                   <RowDefinition Height="6"/>
-                  <RowDefinition Height="*" MinHeight="80"/>
-                  <RowDefinition Height="14"/>
                   <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="10"/>
+                  <RowDefinition Height="6"/>
                   <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="8"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="8"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="10"/>
+                  <RowDefinition Height="6"/>
                   <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Name="TxtLblWhoHasAccess" Text="WHO HAS ACCESS" FontWeight="SemiBold" FontSize="11"
+                <TextBlock Grid.Row="0" Name="TxtLblWhoHasAccess" Text="PERMISSIONS" FontWeight="SemiBold" FontSize="11"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
 
-                <TextBlock Grid.Row="2" Name="TxtFolderHint"
-                           Text="Select a folder to see who has access"
-                           Foreground="{DynamicResource TextSecondaryBrush}" FontStyle="Italic" FontSize="12"/>
+                <Grid Grid.Row="2">
+                  <DataGrid Name="DgCurrentPerms"
+                            AutoGenerateColumns="False"
+                            IsReadOnly="True"
+                            HeadersVisibility="Column"
+                            CanUserReorderColumns="False"
+                            CanUserSortColumns="False"
+                            CanUserResizeRows="False"
+                            SelectionMode="Single"
+                            GridLinesVisibility="None"
+                            Background="{DynamicResource SurfaceBrush}"
+                            Foreground="{DynamicResource TextPrimaryBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            RowBackground="{DynamicResource SurfaceBrush}"
+                            AlternatingRowBackground="{DynamicResource BgBrush}"
+                            HorizontalScrollBarVisibility="Disabled"
+                            ColumnHeaderHeight="30">
+                    <DataGrid.ColumnHeaderStyle>
+                      <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                        <Setter Property="FontSize" Value="11"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="Padding" Value="10,6"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                      </Style>
+                    </DataGrid.ColumnHeaderStyle>
+                    <DataGrid.CellStyle>
+                      <Style TargetType="DataGridCell">
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="Padding" Value="10,6"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                        <Style.Triggers>
+                          <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                          </Trigger>
+                        </Style.Triggers>
+                      </Style>
+                    </DataGrid.CellStyle>
+                    <DataGrid.RowStyle>
+                      <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                          <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
+                          </Trigger>
+                        </Style.Triggers>
+                      </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Person or group" Binding="{Binding User}" Width="*"/>
+                      <DataGridTextColumn Header="Access level"    Binding="{Binding PermissionLevelName}" Width="180"/>
+                    </DataGrid.Columns>
+                  </DataGrid>
+                  <!-- Empty state overlay — hidden when a folder is selected -->
+                  <TextBlock Name="TxtFolderHint"
+                             Text="Select a folder to see who has access"
+                             TextWrapping="Wrap"
+                             Foreground="{DynamicResource TextSecondaryBrush}"
+                             FontSize="12" FontStyle="Italic"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Margin="12" Opacity="0.7"
+                             IsHitTestVisible="False"/>
+                </Grid>
 
-                <DataGrid Grid.Row="4" Name="DgCurrentPerms"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          HeadersVisibility="Column"
-                          CanUserReorderColumns="False"
-                          CanUserSortColumns="False"
-                          CanUserResizeRows="False"
-                          SelectionMode="Single"
-                          GridLinesVisibility="None"
-                          Background="{DynamicResource SurfaceBrush}"
-                          Foreground="{DynamicResource TextPrimaryBrush}"
-                          BorderBrush="{DynamicResource BorderBrush}"
-                          BorderThickness="1"
-                          RowBackground="{DynamicResource SurfaceBrush}"
-                          AlternatingRowBackground="{DynamicResource BgBrush}"
-                          HorizontalScrollBarVisibility="Disabled"
-                          ColumnHeaderHeight="30">
-                  <DataGrid.ColumnHeaderStyle>
-                    <Style TargetType="DataGridColumnHeader">
-                      <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
-                      <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
-                      <Setter Property="FontSize" Value="11"/>
-                      <Setter Property="FontWeight" Value="SemiBold"/>
-                      <Setter Property="Padding" Value="10,6"/>
-                      <Setter Property="BorderThickness" Value="0"/>
-                    </Style>
-                  </DataGrid.ColumnHeaderStyle>
-                  <DataGrid.CellStyle>
-                    <Style TargetType="DataGridCell">
-                      <Setter Property="BorderThickness" Value="0"/>
-                      <Setter Property="Padding" Value="10,6"/>
-                      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                      <Style.Triggers>
-                        <Trigger Property="IsSelected" Value="True">
-                          <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
-                          <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                        </Trigger>
-                      </Style.Triggers>
-                    </Style>
-                  </DataGrid.CellStyle>
-                  <DataGrid.RowStyle>
-                    <Style TargetType="DataGridRow">
-                      <Style.Triggers>
-                        <Trigger Property="IsSelected" Value="True">
-                          <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
-                        </Trigger>
-                      </Style.Triggers>
-                    </Style>
-                  </DataGrid.RowStyle>
-                  <DataGrid.Columns>
-                    <DataGridTextColumn Header="Person or group" Binding="{Binding User}" Width="*"/>
-                    <DataGridTextColumn Header="Access level"    Binding="{Binding PermissionLevelName}" Width="180"/>
-                  </DataGrid.Columns>
-                </DataGrid>
-
-                <TextBlock Grid.Row="6" Name="TxtLblAddOrChange" Text="ADD OR CHANGE ACCESS" FontWeight="SemiBold" FontSize="11"
-                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-
-                <Grid Grid.Row="8">
+                <StackPanel Grid.Row="4">
                   <TextBox Name="TxtAddUser"
                            Tag="Search by name or email..."
                            ToolTip="Search Active Directory or type an email address directly"/>
-                  <Popup Name="PopAddUser" PlacementTarget="{Binding ElementName=TxtAddUser}"
-                         Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
-                    <Border Background="{DynamicResource SurfaceBrush}"
-                            BorderBrush="{DynamicResource AccentBrush}"
-                            BorderThickness="1" CornerRadius="6">
-                      <ListBox Name="LbAdResults" MaxHeight="180" BorderThickness="0"
-                               Background="{DynamicResource SurfaceBrush}">
-                        <ListBox.ItemTemplate>
-                          <DataTemplate>
-                            <StackPanel Margin="0,2">
-                              <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"
-                                         Foreground="{DynamicResource TextPrimaryBrush}"/>
-                              <TextBlock Text="{Binding Mail}" FontSize="11"
-                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            </StackPanel>
-                          </DataTemplate>
-                        </ListBox.ItemTemplate>
-                      </ListBox>
-                    </Border>
-                  </Popup>
-                </Grid>
+                  <Border Name="BorderAdResults" Visibility="Collapsed" Margin="0,2,0,0"
+                          Background="{DynamicResource SurfaceBrush}"
+                          BorderBrush="{DynamicResource AccentBrush}"
+                          BorderThickness="1" CornerRadius="4">
+                    <ListBox Name="LbAdResults" MaxHeight="200" BorderThickness="0"
+                             Background="{DynamicResource SurfaceBrush}"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                      <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                          <Setter Property="Padding" Value="8,2"/>
+                          <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        </Style>
+                      </ListBox.ItemContainerStyle>
+                      <ListBox.ItemTemplate>
+                        <DataTemplate>
+                          <StackPanel Margin="0,1">
+                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{Binding Mail}" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                          </StackPanel>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  </Border>
+                </StackPanel>
 
-                <ComboBox Grid.Row="10" Name="CbPermLevel"
+                <ComboBox Grid.Row="6" Name="CbPermLevel"
                           Background="{DynamicResource SurfaceBrush}"
                           Foreground="{DynamicResource TextPrimaryBrush}"
                           BorderBrush="{DynamicResource BorderBrush}"
@@ -921,166 +1177,124 @@
                           Padding="8,6"
                           ToolTip="Choose what this person is allowed to do"/>
 
-                <StackPanel Grid.Row="12" Orientation="Horizontal">
+                <StackPanel Grid.Row="8" Orientation="Horizontal">
                   <Button Name="BtnSavePerm"   Content="Save"   Margin="0,0,8,0" Width="90"/>
                   <Button Name="BtnRemovePerm" Content="Remove" Width="90"
                           Style="{DynamicResource SecondaryButton}"/>
                 </StackPanel>
 
-                <TextBlock Grid.Row="14" Name="TxtPermStatus" FontSize="12"
+                <TextBlock Grid.Row="10" Name="TxtPermStatus" FontSize="12"
                            Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap"/>
               </Grid>
             </Grid>
           </TabItem>
 
-        </TabControl>
-      </TabItem>
+          </TabControl>
+        </Grid>
 
-      <!-- ─── Settings Tab ─── -->
-      <TabItem Header="Settings" Name="TabSettings">
-        <Grid Margin="0,8,0,0">
+        <!-- ─── Dev view (unlocked via dev mode) ─── -->
+        <Grid Name="PanelDevView" Visibility="Collapsed" Margin="0,8,0,0">
           <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="*"/>
           </Grid.RowDefinitions>
 
-          <!-- Scrollable settings sections -->
-          <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="0,0,16,0" MaxWidth="560">
-
-              <!-- ══ Appearance ══ -->
-              <TextBlock Name="TxtLblAppearance" Text="APPEARANCE" FontWeight="SemiBold" FontSize="11"
-                         Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,8"/>
-              <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
-                      BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                      Padding="12,10" Margin="0,0,0,16">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Name="TxtLblColourTheme" Grid.Column="0" Text="Colour theme"
-                             FontSize="12" FontWeight="SemiBold"
-                             Foreground="{DynamicResource TextPrimaryBrush}"
-                             VerticalAlignment="Center"/>
-                  <ListBox Name="LbThemeSelector" Grid.Column="2" Background="Transparent" BorderThickness="0" Padding="0">
-                    <ListBox.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"/>
-                      </ItemsPanelTemplate>
-                    </ListBox.ItemsPanel>
-                    <ListBox.ItemContainerStyle>
-                      <Style TargetType="ListBoxItem">
-                        <Setter Property="Padding"                    Value="0"/>
-                        <Setter Property="Margin"                     Value="0,0,6,0"/>
-                        <Setter Property="Background"                 Value="Transparent"/>
-                        <Setter Property="BorderThickness"            Value="2"/>
-                        <Setter Property="BorderBrush"                Value="Transparent"/>
-                        <Setter Property="FocusVisualStyle"           Value="{x:Null}"/>
-                        <Setter Property="IsTabStop"                  Value="False"/>
-                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
-                        <Setter Property="VerticalContentAlignment"   Value="Center"/>
-                        <Setter Property="Cursor"                     Value="Hand"/>
-                        <Setter Property="Template">
-                          <Setter.Value>
-                            <ControlTemplate TargetType="ListBoxItem">
-                              <Border x:Name="Outer" BorderBrush="{TemplateBinding BorderBrush}"
-                                      BorderThickness="{TemplateBinding BorderThickness}"
-                                      CornerRadius="8" Padding="2" Background="Transparent">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                              </Border>
-                              <ControlTemplate.Triggers>
-                                <Trigger Property="IsSelected" Value="True">
-                                  <Setter TargetName="Outer" Property="BorderBrush" Value="{DynamicResource TextPrimaryBrush}"/>
-                                </Trigger>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                  <Setter TargetName="Outer" Property="BorderBrush" Value="{DynamicResource TextSecondaryBrush}"/>
-                                </Trigger>
-                              </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                          </Setter.Value>
-                        </Setter>
-                      </Style>
-                    </ListBox.ItemContainerStyle>
-                    <ListBoxItem Tag="Dark"   ToolTip="Dark">
-                      <Border Width="26" Height="26" CornerRadius="6" Background="#7C6FE0"/>
-                    </ListBoxItem>
-                    <ListBoxItem Tag="Light"  ToolTip="Light">
-                      <Border Width="26" Height="26" CornerRadius="6" Background="#C8E4FF"/>
-                    </ListBoxItem>
-                    <ListBoxItem Tag="Green"  ToolTip="Green">
-                      <Border Width="26" Height="26" CornerRadius="6" Background="#4E8A6E"/>
-                    </ListBoxItem>
-                    <ListBoxItem Tag="Maroon" ToolTip="Maroon" Margin="0">
-                      <Border Width="26" Height="26" CornerRadius="6" Background="#8A4E5E"/>
-                    </ListBoxItem>
-                  </ListBox>
-                </Grid>
-              </Border>
-
-              <!-- ══ Language ══ -->
-              <TextBlock Name="TxtLblLanguageSection" Text="LANGUAGE" FontWeight="SemiBold" FontSize="11"
-                         Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,8"/>
-              <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
-                      BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                      Padding="12,10" Margin="0,0,0,16">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Name="TxtLblLanguage" Grid.Column="0" Text="Language"
-                             FontSize="12" FontWeight="SemiBold"
-                             Foreground="{DynamicResource TextPrimaryBrush}"
-                             VerticalAlignment="Center"/>
-                  <ComboBox Name="CbLanguageSelector" Grid.Column="2"
-                            Background="{DynamicResource SurfaceBrush}"
-                            Foreground="{DynamicResource TextPrimaryBrush}"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            BorderThickness="1" Padding="8,4" MinWidth="120">
-                    <ComboBoxItem Content="English" Tag="en"/>
-                    <ComboBoxItem Content="Deutsch" Tag="de"/>
-                  </ComboBox>
-                </Grid>
-              </Border>
-
-            </StackPanel>
-          </ScrollViewer>
-
-          <!-- About pinned to bottom -->
-          <Border Name="AboutBorder" Grid.Row="1" Padding="16,12" Margin="0,8,16,0" Cursor="Hand">
-            <Border.Style>
-              <Style TargetType="Border">
-                <Style.Triggers>
-                  <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Opacity" Value="0.75"/>
-                  </Trigger>
-                </Style.Triggers>
-              </Style>
-            </Border.Style>
-            <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
-                       HorizontalAlignment="Center"
-                       Text="Inspired by G.Q. and B.B., made by Lucas and Claude.">
-              <TextBlock.Style>
-                <Style TargetType="TextBlock">
-                  <Style.Triggers>
-                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
-                      <Setter Property="TextDecorations" Value="Underline"/>
-                    </DataTrigger>
-                  </Style.Triggers>
-                </Style>
-              </TextBlock.Style>
-            </TextBlock>
+          <!-- Top box spanning full width, takes half the height -->
+          <Border Grid.Row="0" CornerRadius="8"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                  Background="Transparent" Padding="10">
+            <TextBlock Name="TxtDevProfileGen" Text="Profile generator"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="15" FontStyle="Italic"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Opacity="0.6"/>
           </Border>
 
-        </Grid>
-      </TabItem>
+          <!-- Bottom row: two boxes side by side -->
+          <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="12"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-      <!-- ─── Extras Tab ─── -->
-      <TabItem Header="Extras" Name="TabExtras" Visibility="Collapsed" IsEnabled="False">
+            <Border Grid.Column="0" CornerRadius="8"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                    Background="Transparent" Padding="10">
+              <TextBlock Name="TxtDevAdressbook" Text="Refresh Outlook adressbook"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="15" FontStyle="Italic"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                         Opacity="0.6"/>
+            </Border>
+
+            <Border Grid.Column="2" CornerRadius="8"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                    Background="Transparent" Padding="10">
+              <TextBlock Name="TxtDevChangeFont" Text="Outlook change font"
+                         Foreground="{DynamicResource TextSecondaryBrush}"
+                         FontSize="15" FontStyle="Italic"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                         Opacity="0.6"/>
+            </Border>
+          </Grid>
+        </Grid>
+
+      </Grid>
+
+      <!-- ── Skype section (two boxes side by side) ── -->
+      <Grid Name="PanelSkypeContent" Visibility="Collapsed">
+        <Grid Margin="0,8,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="12"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+
+          <!-- LEFT BOX: Clear cache -->
+          <Border Grid.Column="0" CornerRadius="8"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                  Background="Transparent" Padding="10">
+            <TextBlock Name="TxtSkypeCacheMsg" Text="Clear cache"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="15" FontStyle="Italic"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Opacity="0.6"/>
+          </Border>
+
+          <!-- RIGHT BOX: Profile generator -->
+          <Border Grid.Column="2" CornerRadius="8"
+                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                  Background="Transparent" Padding="10">
+            <TextBlock Name="TxtSkypeGeneratorMsg" Text="Profile generator"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
+                       FontSize="15" FontStyle="Italic"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Opacity="0.6"/>
+          </Border>
+        </Grid>
+      </Grid>
+
+      <!-- ── MUD section ── -->
+      <Grid Name="PanelMUDContent" Visibility="Collapsed">
+        <TextBlock Name="TxtMUDMsg" Text="Feature not implemented"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
+                   FontSize="15" FontStyle="Italic"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Opacity="0.6"/>
+      </Grid>
+
+      <!-- ── About section ── -->
+      <Grid Name="PanelAboutContent" Visibility="Collapsed">
+        <TextBlock Text="Inspired by G.Q. and B.B., made by Lucas and Claude."
+                   FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+      </Grid>
+
+      <!-- ── Extras section (Konami-unlocked, hidden by default) ── -->
+      <Grid Name="PanelExtrasContent" Visibility="Collapsed">
         <Grid Margin="16">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -1151,11 +1365,12 @@
 
           </TabControl>
         </Grid>
-      </TabItem>
-    </TabControl>
+      </Grid>
+
+    </Grid>
 
     <!-- ═══ Status Bar (always visible) ═══ -->
-    <Border Name="StatusBar" Grid.Row="3" Background="{DynamicResource SurfaceBrush}" CornerRadius="6" Padding="12,6" Margin="0,8,0,0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+    <Border Name="StatusBar" Grid.Row="3" Background="{DynamicResource SurfaceBrush}" CornerRadius="6" Padding="12,4" Margin="0,6,0,0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5">
       <TextBlock Name="TxtStatus" Text="Ready" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
     </Border>
   </Grid>

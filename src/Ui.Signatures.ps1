@@ -111,7 +111,7 @@ function Initialize-SignaturesTab {
                 $warn = if ($status.Warning) { " [!] $($status.Warning)" } else { '' }
                 $script:sigTxtSignatureInfo.Text = "$name$warn"
             } catch {
-                $script:sigTxtSignatureInfo.Text = "Preview failed: $_"
+                $script:sigTxtSignatureInfo.Text = Get-Str 'SigPreviewFailed' $_
             }
         } else {
             $fgHex2 = $script:Themes[$script:AppSettings.Theme].TextSecondaryBrush
@@ -132,7 +132,7 @@ function Initialize-SignaturesTab {
         $sigName = if ($null -ne $ctrl) { $ctrl.Text } else { $script:selectedSigName }
         $noneLabels = @('(none selected)', '(select a signature above)', '(Signatur oben auswählen)')
         if ([string]::IsNullOrWhiteSpace($sigName) -or $sigName -in $noneLabels) {
-            Show-Error 'Click a signature name in the left panel first.'
+            Show-Error (Get-Str 'SigSelectFirst')
             return
         }
         $assignHtmlPath = Get-SignatureHtmlPath -Name $sigName
@@ -173,7 +173,7 @@ function Initialize-SignaturesTab {
 
         if ($assignments.Count -eq 0) {
             $lbl = New-Object System.Windows.Controls.TextBlock
-            $lbl.Text = 'No Outlook accounts found.'
+            $lbl.Text = Get-Str 'SigNoAccounts'
             $lbl.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
             $lbl.FontSize = 12
             $lbl.Margin = [System.Windows.Thickness]::new(0, 8, 0, 0)
@@ -251,10 +251,10 @@ function Initialize-SignaturesTab {
             $sigLabels = @()
             if ($sigNames.Count -eq 0) {
                 $noSig = New-Object System.Windows.Controls.TextBlock
-                $noSig.Text     = '  (no signature assigned)'
-                $noSig.FontSize = 10
+                $noSig.Text      = Get-Str 'SigNoneAssigned'
+                $noSig.FontSize  = 10
                 $noSig.FontStyle = 'Italic'
-                $noSig.Margin   = [System.Windows.Thickness]::new(14, 2, 0, 4)
+                $noSig.Margin    = [System.Windows.Thickness]::new(14, 2, 0, 4)
                 $noSig.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
                 $script:sigPanelInboxList.Children.Add($noSig) | Out-Null
             } else {
@@ -377,7 +377,7 @@ function Initialize-SignaturesTab {
         # ── Local Signatures section (unassigned sigs) ──
         if ($localOnlySigs.Count -gt 0) {
             $localHdr = New-Object System.Windows.Controls.TextBlock
-            $localHdr.Text       = 'LOCAL SIGNATURES'
+            $localHdr.Text       = Get-Str 'LblLocalSignatures'
             $localHdr.FontSize   = 10
             $localHdr.FontWeight = 'SemiBold'
             $localHdr.Margin     = [System.Windows.Thickness]::new(2, 14, 0, 4)
@@ -485,7 +485,7 @@ function Initialize-SignaturesTab {
     # -- Rename --
     $btnRename.Add_Click({
         $old = $script:selectedSigName
-        if ([string]::IsNullOrWhiteSpace($old)) { Show-Error 'Click a signature name in the left panel first.'; return }
+        if ([string]::IsNullOrWhiteSpace($old)) { Show-Error (Get-Str 'SigSelectFirst'); return }
         $new = Show-InputBox "Rename '$old' to:" 'Rename Signature' $old
         if ([string]::IsNullOrWhiteSpace($new) -or $new -eq $old) { return }
         try {
@@ -500,14 +500,14 @@ function Initialize-SignaturesTab {
     # -- Delete --
     $btnDelete.Add_Click({
         $name = $script:selectedSigName
-        if ([string]::IsNullOrWhiteSpace($name)) { Show-Error 'Click a signature name in the left panel first.'; return }
+        if ([string]::IsNullOrWhiteSpace($name)) { Show-Error (Get-Str 'SigSelectFirst'); return }
         if (-not (Confirm-Action "Delete signature '$name'? This cannot be undone." 'Delete Signature')) { return }
         try {
             Remove-Signature -Name $name
             $script:currentSig      = $null
             $script:selectedSigName = $null
             Set-SelectedSigLabel '(none selected)'
-            $script:sigTxtSignatureInfo.Text = 'Select a mailbox or signature to preview.'
+            $script:sigTxtSignatureInfo.Text = Get-Str 'SigSelectToPreview'
             $script:previewBrowserRef.Visibility = 'Collapsed'
             if ($null -ne $script:previewEmptyHintRef) { $script:previewEmptyHintRef.Visibility = 'Visible' }
             & $script:refreshInboxList

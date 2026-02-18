@@ -202,7 +202,7 @@ function Initialize-Ui {
     })
     # Close dropdown when mouse leaves button+popup area (delay so user can traverse the gap)
     $script:olCloseTimer = New-Object System.Windows.Threading.DispatcherTimer
-    $script:olCloseTimer.Interval = [TimeSpan]::FromMilliseconds(400)
+    $script:olCloseTimer.Interval = [TimeSpan]::FromMilliseconds(150)
     $script:olCloseTimer.Add_Tick({
         $script:olCloseTimer.Stop()
         $script:popOutlookMenuRef.IsOpen = $false
@@ -245,7 +245,7 @@ function Initialize-Ui {
         $script:popSettingsMenuRef.IsOpen = $true
     })
     $script:stCloseTimer = New-Object System.Windows.Threading.DispatcherTimer
-    $script:stCloseTimer.Interval = [TimeSpan]::FromMilliseconds(400)
+    $script:stCloseTimer.Interval = [TimeSpan]::FromMilliseconds(150)
     $script:stCloseTimer.Add_Tick({
         $script:stCloseTimer.Stop()
         $script:popSettingsMenuRef.IsOpen = $false

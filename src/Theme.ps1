@@ -12,18 +12,20 @@ $script:Themes = [ordered]@{
         TextPrimaryBrush   = '#EAEAEF'
         TextSecondaryBrush = '#9898A8'
         TextOnAccentBrush  = '#FFFFFF'
+        MatchBrush         = '#E0A526'
     }
     'Light' = @{
-        BgBrush            = '#F0F6FF'
-        SurfaceBrush       = '#FFFFFF'
-        SurfaceHoverBrush  = '#E6F0FF'
-        BorderBrush        = '#C8D8EE'
-        AccentBrush        = '#6DA8E0'
-        AccentHoverBrush   = '#4E90CC'
-        AccentSubtleBrush  = '#E0EEFF'
+        BgBrush            = '#D6E6F5'
+        SurfaceBrush       = '#E4EEF8'
+        SurfaceHoverBrush  = '#CDDFF0'
+        BorderBrush        = '#A8C4DD'
+        AccentBrush        = '#5A8FC4'
+        AccentHoverBrush   = '#3D78B0'
+        AccentSubtleBrush  = '#C2D6EA'
         TextPrimaryBrush   = '#1A2333'
-        TextSecondaryBrush = '#4A6080'
+        TextSecondaryBrush = '#3D5872'
         TextOnAccentBrush  = '#FFFFFF'
+        MatchBrush         = '#D4760A'
     }
     'Green' = @{
         BgBrush            = '#1A2420'
@@ -36,6 +38,7 @@ $script:Themes = [ordered]@{
         TextPrimaryBrush   = '#E2EAE6'
         TextSecondaryBrush = '#8FA99A'
         TextOnAccentBrush  = '#FFFFFF'
+        MatchBrush         = '#C9A834'
     }
     'Maroon' = @{
         BgBrush            = '#241A1E'
@@ -48,6 +51,7 @@ $script:Themes = [ordered]@{
         TextPrimaryBrush   = '#EAE2E5'
         TextSecondaryBrush = '#A98F96'
         TextOnAccentBrush  = '#FFFFFF'
+        MatchBrush         = '#4FA89B'
     }
     'Retro' = @{
         BgBrush            = '#08060F'
@@ -60,6 +64,7 @@ $script:Themes = [ordered]@{
         TextPrimaryBrush   = '#00F0FF'
         TextSecondaryBrush = '#B060FF'
         TextOnAccentBrush  = '#FFFFFF'
+        MatchBrush         = '#00FF88'
     }
 }
 
@@ -77,15 +82,9 @@ function Apply-Theme {
             $Window.Resources[$key] = [System.Windows.Media.SolidColorBrush] $nb
         }
     }
-    # When a sig with a missing file is selected, re-render the error page with new colors.
+    # Re-render preview with new theme colours (the HTML wrapper uses theme background)
     if ($null -ne $script:previewBrowserRef -and $null -ne $script:currentSig) {
-        $htmlPath = Get-SignatureHtmlPath -Name $script:currentSig
-        if (-not (Test-Path $htmlPath)) {
-            $bgHex = $script:Themes[$ThemeName].BgBrush
-            $fgHex = $script:Themes[$ThemeName].TextSecondaryBrush
-            $script:previewBrowserRef.NavigateToString(
-                "<!DOCTYPE html><html style=`"background:$bgHex`"><body style=`"background:$bgHex;color:$fgHex;font-family:Segoe UI;padding:16px`">No HTML file found.</body></html>")
-        }
+        Load-SignaturePreview $script:currentSig
     }
 }
 

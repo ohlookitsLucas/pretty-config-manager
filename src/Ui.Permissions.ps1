@@ -9,7 +9,7 @@ function Initialize-PermissionsTab {
     $lbFolders        = $Window.FindName('LbFolders')
     $dgCurrentPerms   = $Window.FindName('DgCurrentPerms')
     $txtAddUser       = $Window.FindName('TxtAddUser')
-    $popAddUser       = $Window.FindName('PopAddUser')
+    $borderAdResults  = $Window.FindName('BorderAdResults')
     $lbAdResults      = $Window.FindName('LbAdResults')
     $cbPermLevel      = $Window.FindName('CbPermLevel')
     $btnSavePerm      = $Window.FindName('BtnSavePerm')
@@ -36,14 +36,17 @@ function Initialize-PermissionsTab {
     $script:permTxtMailboxEmptyHint     = $Window.FindName('TxtMailboxEmptyHint')
 
     # Store controls needed by AD search functions at script scope
-    $script:permLbAdResults = $lbAdResults
-    $script:permPopAddUser  = $popAddUser
-    $script:permTxtAddUser  = $txtAddUser
+    $script:permLbAdResults      = $lbAdResults
+    $script:permBorderAdResults  = $borderAdResults
+    $script:permTxtAddUser       = $txtAddUser
 
     # Reusable: refresh mailbox list — updates $script:permAllAccounts (set by coordinator)
     # and re-binds both mailbox list controls
     $script:refreshPermMailboxes = {
-        $script:permAllAccounts = @(Get-SignedInAccounts)
+        $all = @(Get-SignedInAccounts)
+        # Only show OG- prefixed mailboxes (shared/delegated accounts)
+        $filtered = @($all | Where-Object { $_.Name -like 'OG-*' })
+        $script:permAllAccounts = if ($filtered.Count -gt 0) { $filtered } else { $all }
         $script:permLbMailboxes.SelectedIndex = -1
         $script:permLbMailboxes.ItemsSource = $null
         $script:permLbMailboxes.ItemsSource = $script:permAllAccounts
@@ -129,6 +132,10 @@ function Initialize-PermissionsTab {
     # Initial state: right panel dimmed
     Set-PermRightEnabled $false
 
+    # Filter to OG- prefixed mailboxes; fall back to all if none match
+    $ogFiltered = @($script:permAllAccounts | Where-Object { $_.Name -like 'OG-*' })
+    if ($ogFiltered.Count -gt 0) { $script:permAllAccounts = $ogFiltered }
+
     # Bind mailbox list (data already loaded by coordinator into $script:permAllAccounts)
     $lbMailboxes.ItemsSource = $script:permAllAccounts
     $isEmpty = $script:permAllAccounts.Count -eq 0
@@ -211,13 +218,13 @@ function Initialize-PermissionsTab {
             $script:permLbAdResults.ItemsSource = $null
             if ($hits.Count -gt 0) {
                 $script:permLbAdResults.ItemsSource = $hits
-                $script:permPopAddUser.IsOpen = $true
+                $script:permBorderAdResults.Visibility = 'Visible'
             } else {
-                $script:permPopAddUser.IsOpen = $false
+                $script:permBorderAdResults.Visibility = 'Collapsed'
                 Set-PermStatus (Get-Str 'PermNoAdMatches') ''
             }
         } catch {
-            $script:permPopAddUser.IsOpen = $false
+            $script:permBorderAdResults.Visibility = 'Collapsed'
         }
     }
 
@@ -227,8 +234,8 @@ function Initialize-PermissionsTab {
             $script:permAdTimer.Stop()
             $script:permAdTimer = $null
         }
-        if ($Query.Length -lt 2) {
-            $script:permPopAddUser.IsOpen = $false
+        if ($Query.Length -lt 3) {
+            $script:permBorderAdResults.Visibility = 'Collapsed'
             return
         }
         $script:permAdLastQuery = $Query
@@ -243,14 +250,15 @@ function Initialize-PermissionsTab {
         Start-AdSearchDebounce -Query $script:permTxtAddUser.Text.Trim()
     })
 
-    # ── AD result selected → fill search box, close popup ───────────────────
+    # ── AD result selected → fill search box, hide results panel ────────────
     $lbAdResults.Add_SelectionChanged({
         $hit = $script:permLbAdResults.SelectedItem
         if ($null -eq $hit) { return }
         $value = if ($hit.Mail) { $hit.Mail } else { $hit.DisplayName }
-        $script:permTxtAddUser.Text      = $value
+        $script:permTxtAddUser.Text       = $value
         $script:permTxtAddUser.CaretIndex = $value.Length
-        $script:permPopAddUser.IsOpen    = $false
+        $script:permBorderAdResults.Visibility = 'Collapsed'
+        $script:permLbAdResults.SelectedIndex  = -1
         Set-PermStatus ''
     })
 

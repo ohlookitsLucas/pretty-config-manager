@@ -35,6 +35,10 @@ $script:FriendlyToOlPerm = [ordered]@{
 $script:OutlookNSFactory = $null
 $script:ADSearchFactory  = $null
 
+# ─── AD search cache ──────────────────────────────────────────────────────────
+# Keyed by query string (lowercase). Each entry: @{ Results=@(); Expires=[datetime] }
+$script:ADCache = @{}
+
 function script:Get-OutlookNS {
     if ($script:OutlookNSFactory) { return & $script:OutlookNSFactory }
     $ol = New-Object -ComObject Outlook.Application
@@ -136,17 +140,23 @@ function Get-MailboxFolders {
     try {
         $ns = Get-OutlookNS
 
-        # Build list of display names for this SMTP from the Accounts COM collection
+        # Single pass: collect display names and try DeliveryStore (preferred — exact match)
         $accDisplayNames = @()
         for ($j = 1; $j -le $ns.Accounts.Count; $j++) {
             $a = $ns.Accounts.Item($j)
             $aSmtp = ''; try { $aSmtp = $a.SmtpAddress } catch {}
             if ($aSmtp -eq $SmtpAddress) {
                 $accDisplayNames += $a.DisplayName
+                try {
+                    $delivStore = $a.DeliveryStore
+                    if ($null -ne $delivStore) {
+                        return Get-FoldersRecursive -Folder $delivStore.GetRootFolder() -Depth 0
+                    }
+                } catch {}
             }
         }
 
-        # Walk every Store and return the first one whose display name matches
+        # Fallback: walk every Store and match by display name
         for ($i = 1; $i -le $ns.Stores.Count; $i++) {
             $store = $ns.Stores.Item($i)
             $storeName = ''; try { $storeName = $store.DisplayName } catch {}
@@ -169,7 +179,7 @@ function Get-MailboxFolders {
             }
         }
 
-        # Last resort fallback: first store
+        # Last resort: first store
         $firstRoot = $ns.Stores.Item(1).GetRootFolder()
         return Get-FoldersRecursive -Folder $firstRoot -Depth 0
     } catch {
@@ -345,10 +355,26 @@ function Search-ADUsers {
       sAMAccountName. Returns up to 20 results.
       Each item: [PSCustomObject]@{ DisplayName; Mail; SamAccountName }
       Returns empty array gracefully if not domain-joined or AD unreachable.
+
+      Performance notes:
+      - Minimum query length is 3 to avoid massive unindexed wildcard scans
+      - Results are cached in-memory for 60 seconds per unique query
+      - ServerTimeLimit caps the DC wait at 4 seconds to avoid UI hangs
     #>
     param([string]$Query)
-    if ([string]::IsNullOrWhiteSpace($Query) -or $Query.Length -lt 2) { return @() }
+    if ([string]::IsNullOrWhiteSpace($Query) -or $Query.Length -lt 3) { return @() }
     if ($script:ADSearchFactory) { return & $script:ADSearchFactory $Query }
+
+    # Cache lookup
+    $cacheKey = $Query.ToLower()
+    if ($script:ADCache.ContainsKey($cacheKey)) {
+        $entry = $script:ADCache[$cacheKey]
+        if ([datetime]::Now -lt $entry.Expires) {
+            return $entry.Results
+        }
+        $script:ADCache.Remove($cacheKey)
+    }
+
     try {
         Add-Type -AssemblyName System.DirectoryServices -ErrorAction Stop
         $searcher = New-Object System.DirectoryServices.DirectorySearcher
@@ -361,17 +387,21 @@ function Search-ADUsers {
             "(cn=*$safe*)" +
             ")"
         $searcher.PropertiesToLoad.AddRange(@('displayName','mail','sAMAccountName')) | Out-Null
-        $searcher.SizeLimit = 20
+        $searcher.SizeLimit        = 20
+        $searcher.ServerTimeLimit  = [System.TimeSpan]::FromSeconds(4)
+        $searcher.CacheResults     = $false   # we do our own caching
         $results = $searcher.FindAll()
         $out = @()
         foreach ($r in $results) {
-            $dn   = if ($r.Properties['displayName'].Count -gt 0) { $r.Properties['displayName'][0] } else { '' }
-            $mail = if ($r.Properties['mail'].Count -gt 0)        { $r.Properties['mail'][0] }        else { '' }
+            $dn   = if ($r.Properties['displayName'].Count -gt 0)    { $r.Properties['displayName'][0] }    else { '' }
+            $mail = if ($r.Properties['mail'].Count -gt 0)           { $r.Properties['mail'][0] }           else { '' }
             $sam  = if ($r.Properties['sAMAccountName'].Count -gt 0) { $r.Properties['sAMAccountName'][0] } else { '' }
             if ($dn -or $mail -or $sam) {
                 $out += [PSCustomObject]@{ DisplayName = $dn; Mail = $mail; SamAccountName = $sam }
             }
         }
+        # Cache for 60 seconds
+        $script:ADCache[$cacheKey] = @{ Results = $out; Expires = [datetime]::Now.AddSeconds(60) }
         return $out
     } catch {
         Write-Verbose "AD search failed (may not be domain-joined): $_"
