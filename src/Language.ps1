@@ -1,11 +1,29 @@
 ﻿# ═══ Translations ════════════════════════════════════════════════════════════
 $script:Strings = @{
     'en' = @{
-        # Tab headers
+        # Tab headers (sub-tabs)
         TabSignatures  = 'Signatures'
         TabPermissions = 'Permissions'
-        TabSettings    = 'Settings'
         TabExtras      = 'Extras'
+        # Navigation buttons
+        NavOutlook       = 'Outlook'
+        NavSkype         = 'Skype'
+        NavMUD           = 'MUD'
+        NavSettings      = 'Settings'
+        NavExtras        = 'Extras'
+        # Navigation dropdown menu items
+        NavMenuSignatures      = 'Signatures'
+        NavMenuPermissions     = 'Permissions'
+        NavMenuDev             = 'Dev'
+        # Dev page box labels
+        TxtDevProfileGen       = 'Profile generator'
+        TxtDevAdressbook       = 'Refresh Outlook adressbook'
+        TxtDevChangeFont       = 'Outlook change font'
+        # Skype page box labels
+        TxtSkypeCacheMsg       = 'Clear cache'
+        TxtSkypeGeneratorMsg   = 'Profile generator'
+        # MUD placeholder
+        TxtMUDMsg              = 'Feature not implemented'
         # Settings section labels
         LblAppearance      = 'APPEARANCE'
         LblColourTheme     = 'Colour theme'
@@ -15,7 +33,8 @@ $script:Strings = @{
         LblSignatures  = 'SIGNATURES'
         LblPreview     = 'PREVIEW'
         LblAssign      = 'Assign'
-        BtnNew         = '+ New'
+        BtnRefreshMailboxes = 'Refresh mailboxes'
+        BtnNew         = 'New'
         BtnRename      = 'Rename'
         BtnDelete      = 'Delete'
         BtnEdit        = 'Edit in Outlook'
@@ -25,8 +44,7 @@ $script:Strings = @{
         # Permissions tab
         LblMailboxes     = 'MAILBOXES'
         LblFolders       = 'FOLDERS'
-        LblWhoHasAccess  = 'WHO HAS ACCESS'
-        LblAddOrChange   = 'ADD OR CHANGE ACCESS'
+        LblWhoHasAccess  = 'PERMISSIONS'
         BtnRefreshPerm   = 'Refresh mailboxes'
         BtnSavePerm      = 'Save'
         BtnRemovePerm    = 'Remove'
@@ -60,12 +78,14 @@ $script:Strings = @{
         StatusPermissions     = 'Permissions for: {0}'
         StatusMailboxesRefreshed = 'Mailboxes refreshed'
         StatusErrorRefresh    = 'Error refreshing mailboxes: {0}'
+        StatusDevUnlocked     = 'DEV features unlocked'
         StatusExtrasLocked    = 'Extras locked'
         StatusExtrasUnlocked  = 'Extras unlocked'
         StatusUnlockError     = 'Unlock error: {0}'
         # Permission status messages
         PermShowing           = 'Showing {0} permission(s)'
         PermCouldNotRead      = 'Could not read permissions: {0}'
+        PermLoadingFolders    = 'Loading folders...'
         PermNoFolders         = 'No folders found (is Outlook running?)'
         PermCouldNotLoad      = 'Could not load folders: {0}'
         PermErrorReading      = 'Error reading permissions: {0}'
@@ -136,11 +156,29 @@ $script:Strings = @{
         DlgNewSigTitle  = 'New Signature'
     }
     'de' = @{
-        # Tab headers
+        # Tab headers (sub-tabs)
         TabSignatures  = 'Signaturen'
         TabPermissions = 'Berechtigungen'
-        TabSettings    = 'Einstellungen'
         TabExtras      = 'Extras'
+        # Navigation buttons
+        NavOutlook       = 'Outlook'
+        NavSkype         = 'Skype'
+        NavMUD           = 'MUD'
+        NavSettings      = 'Einstellungen'
+        NavExtras        = 'Extras'
+        # Navigation dropdown menu items
+        NavMenuSignatures      = 'Signaturen'
+        NavMenuPermissions     = 'Berechtigungen'
+        NavMenuDev             = 'Dev'
+        # Dev page box labels
+        TxtDevProfileGen       = 'Profilgenerator'
+        TxtDevAdressbook       = 'Outlook-Adressbuch aktualisieren'
+        TxtDevChangeFont       = 'Outlook-Schriftart ändern'
+        # Skype page box labels
+        TxtSkypeCacheMsg       = 'Cache leeren'
+        TxtSkypeGeneratorMsg   = 'Profilgenerator'
+        # MUD placeholder
+        TxtMUDMsg              = 'Funktion nicht implementiert'
         # Settings section labels
         LblAppearance      = 'DARSTELLUNG'
         LblColourTheme     = 'Farbschema'
@@ -150,7 +188,8 @@ $script:Strings = @{
         LblSignatures  = 'SIGNATUREN'
         LblPreview     = 'VORSCHAU'
         LblAssign      = 'Zuweisen'
-        BtnNew         = '+ Neu'
+        BtnRefreshMailboxes = 'Postfächer aktualisieren'
+        BtnNew         = 'Neu'
         BtnRename      = 'Umbenennen'
         BtnDelete      = 'Löschen'
         BtnEdit        = 'In Outlook bearbeiten'
@@ -160,8 +199,7 @@ $script:Strings = @{
         # Permissions tab
         LblMailboxes     = 'POSTFÄCHER'
         LblFolders       = 'ORDNER'
-        LblWhoHasAccess  = 'WER HAT ZUGRIFF'
-        LblAddOrChange   = 'ZUGRIFF HINZUFÜGEN ODER ÄNDERN'
+        LblWhoHasAccess  = 'BERECHTIGUNGEN'
         BtnRefreshPerm   = 'Postfächer aktualisieren'
         BtnSavePerm      = 'Speichern'
         BtnRemovePerm    = 'Entfernen'
@@ -195,12 +233,14 @@ $script:Strings = @{
         StatusPermissions     = 'Berechtigungen für: {0}'
         StatusMailboxesRefreshed = 'Postfächer aktualisiert'
         StatusErrorRefresh    = 'Fehler beim Aktualisieren der Postfächer: {0}'
+        StatusDevUnlocked     = 'DEV-Funktionen freigeschaltet'
         StatusExtrasLocked    = 'Extras gesperrt'
         StatusExtrasUnlocked  = 'Extras entsperrt'
         StatusUnlockError     = 'Entsperrfehler: {0}'
         # Permission status messages
         PermShowing           = '{0} Berechtigung(en) angezeigt'
         PermCouldNotRead      = 'Berechtigungen konnten nicht gelesen werden: {0}'
+        PermLoadingFolders    = 'Ordner werden geladen...'
         PermNoFolders         = 'Keine Ordner gefunden (läuft Outlook?)'
         PermCouldNotLoad      = 'Ordner konnten nicht geladen werden: {0}'
         PermErrorReading      = 'Fehler beim Lesen der Berechtigungen: {0}'
@@ -294,7 +334,7 @@ function Apply-Lang {
         $el = $w.FindName($name)
         if ($null -ne $el) { $el.Text = Get-Str $key }
     }
-    function SC([string]$name, [string]$key) {
+    function Set-ElContent([string]$name, [string]$key) {
         $el = $w.FindName($name)
         if ($null -ne $el) { $el.Content = Get-Str $key }
     }
@@ -310,34 +350,43 @@ function Apply-Lang {
         $el = $w.FindName($name)
         if ($null -ne $el) { $el.Tag = Get-Str $key }
     }
-    # Tab headers
-    SH 'TabSignatures'  'TabSignatures'
-    SH 'TabPermissions' 'TabPermissions'
-    SH 'TabSettings'    'TabSettings'
-    SH 'TabExtras'      'TabExtras'
+    # Navigation buttons
+    Set-ElContent 'NavBtnOutlook'          'NavOutlook'
+    Set-ElContent 'NavBtnSkype'            'NavSkype'
+    Set-ElContent 'NavBtnMUD'              'NavMUD'
+    Set-ElContent 'NavBtnExtras'           'NavExtras'
+    # Note: NavBtnSettings uses a gear icon (&#x2699;), not translated text
+    # Outlook dropdown items
+    Set-ElContent 'NavMenuSignatures'      'NavMenuSignatures'
+    Set-ElContent 'NavMenuPermissions'     'NavMenuPermissions'
+    Set-ElContent 'NavMenuDev'             'NavMenuDev'
+    # Dev page box labels
+    ST 'TxtDevProfileGen'    'TxtDevProfileGen'
+    ST 'TxtDevAdressbook'    'TxtDevAdressbook'
+    ST 'TxtDevChangeFont'    'TxtDevChangeFont'
+    # Skype page box labels
+    ST 'TxtSkypeCacheMsg'     'TxtSkypeCacheMsg'
+    ST 'TxtSkypeGeneratorMsg' 'TxtSkypeGeneratorMsg'
+    ST 'TxtMUDMsg'            'TxtMUDMsg'
     # Settings
-    ST 'TxtLblAppearance'      'LblAppearance'
     ST 'TxtLblColourTheme'     'LblColourTheme'
-    ST 'TxtLblLanguageSection' 'LblLanguageSection'
     ST 'TxtLblLanguage'        'LblLanguage'
     # Signatures tab
-    ST  'TxtLblSignatures'    'LblSignatures'
-    ST  'TxtLblPreview'       'LblPreview'
     ST  'TxtLblAssign'        'LblAssign'
-    SC  'BtnNewSignature'     'BtnNew'
-    SC  'BtnRenameSignature'  'BtnRename'
-    SC  'BtnDeleteSignature'  'BtnDelete'
-    SC  'BtnEditSignature'    'BtnEdit'
-    SC  'BtnReloadPreview'    'BtnReload'
+    STip 'BtnRefreshMailboxes' 'BtnRefreshMailboxes'
+    Set-ElContent  'BtnNewSignature'     'BtnNew'
+    Set-ElContent  'BtnRenameSignature'  'BtnRename'
+    Set-ElContent  'BtnDeleteSignature'  'BtnDelete'
+    Set-ElContent  'BtnEditSignature'    'BtnEdit'
+    STip 'BtnReloadPreview'    'BtnReload'
     ST  'TxtPreviewEmptyHint' 'TxtPreviewHint'
     # Permissions tab
     ST   'TxtLblMailboxes'           'LblMailboxes'
     ST   'TxtLblFolders'             'LblFolders'
     ST   'TxtLblWhoHasAccess'        'LblWhoHasAccess'
-    ST   'TxtLblAddOrChange'         'LblAddOrChange'
-    SC   'BtnRefreshPerm'            'BtnRefreshPerm'
-    SC   'BtnSavePerm'               'BtnSavePerm'
-    SC   'BtnRemovePerm'             'BtnRemovePerm'
+    Set-ElContent   'BtnRefreshPerm'            'BtnRefreshPerm'
+    Set-ElContent   'BtnSavePerm'               'BtnSavePerm'
+    Set-ElContent   'BtnRemovePerm'             'BtnRemovePerm'
     ST   'TxtMailboxEmptyHint'       'TxtMailboxHint'
     ST   'TxtFoldersHint'            'TxtFoldersHint'
     ST   'TxtFolderHint'             'TxtFolderHint'
@@ -349,7 +398,7 @@ function Apply-Lang {
     # Overview section
     ST   'TxtLblPermOverview'       'LblPermOverview'
     ST   'TxtPermOverviewDesc'      'TxtPermOverviewDesc'
-    SC   'BtnGenerateOverview'      'BtnGenerateOverview'
+    Set-ElContent   'BtnGenerateOverview'      'BtnGenerateOverview'
     # Wizard section
     ST   'TxtLblPermWizard'         'LblPermWizard'
     ST   'TxtWizardDesc'            'TxtWizardDesc'
@@ -360,16 +409,16 @@ function Apply-Lang {
     ST   'TxtWizStep3'              'WizStep3Title'
     ST   'TxtWizStep4'              'WizStep4Title'
     ST   'TxtWizStep5'              'WizStep5Title'
-    SC   'BtnWizNext1'              'BtnWizNext'
-    SC   'BtnWizNext2'              'BtnWizNext'
-    SC   'BtnWizNext3'              'BtnWizNext'
-    SC   'BtnWizNext4'              'BtnWizNext'
-    SC   'BtnWizBack2'              'BtnWizBack'
-    SC   'BtnWizBack3'              'BtnWizBack'
-    SC   'BtnWizBack4'              'BtnWizBack'
-    SC   'BtnWizBack5'              'BtnWizBack'
-    SC   'BtnWizApply'              'BtnWizApply'
-    SC   'BtnWizReset'              'BtnWizReset'
+    Set-ElContent   'BtnWizNext1'              'BtnWizNext'
+    Set-ElContent   'BtnWizNext2'              'BtnWizNext'
+    Set-ElContent   'BtnWizNext3'              'BtnWizNext'
+    Set-ElContent   'BtnWizNext4'              'BtnWizNext'
+    Set-ElContent   'BtnWizBack2'              'BtnWizBack'
+    Set-ElContent   'BtnWizBack3'              'BtnWizBack'
+    Set-ElContent   'BtnWizBack4'              'BtnWizBack'
+    Set-ElContent   'BtnWizBack5'              'BtnWizBack'
+    Set-ElContent   'BtnWizApply'              'BtnWizApply'
+    Set-ElContent   'BtnWizReset'              'BtnWizReset'
     STip 'CbPermLevel'               'TipPermLevel'
     # DataGrid column headers
     $dg = $w.FindName('DgCurrentPerms')

@@ -44,10 +44,12 @@ function Initialize-PermissionsTab {
     # and re-binds both mailbox list controls
     $script:refreshPermMailboxes = {
         $script:permAllAccounts = @(Get-SignedInAccounts)
+        $script:permLbMailboxes.SelectedIndex = -1
         $script:permLbMailboxes.ItemsSource = $null
         $script:permLbMailboxes.ItemsSource = $script:permAllAccounts
         # Also update the wizard mailbox list
         if ($null -ne $script:wizLbMailboxes) {
+            $script:wizLbMailboxes.SelectedIndex = -1
             $script:wizLbMailboxes.ItemsSource = $null
             $script:wizLbMailboxes.ItemsSource = $script:permAllAccounts
         }
@@ -143,14 +145,14 @@ function Initialize-PermissionsTab {
         $script:permDgPerms.ItemsSource     = $null
         $script:permSelectedFolder          = $null
         $script:permTxtFolderHint.Visibility    = 'Visible'
-        $script:permTxtFoldersHint.Text         = 'Loading folders...'
+        $script:permTxtFoldersHint.Text         = Get-Str 'PermLoadingFolders'
         $script:permTxtFoldersHint.Visibility   = 'Visible'
         Set-PermRightEnabled $false
         Set-PermStatus ''
         try {
             $raw = @(Get-MailboxFolders -SmtpAddress $sel.SmtpAddress)
             if ($raw.Count -eq 0) {
-                $script:permTxtFoldersHint.Text = 'No folders found (is Outlook running?)'
+                $script:permTxtFoldersHint.Text = Get-Str 'PermNoFolders'
             } else {
                 $script:permTxtFoldersHint.Visibility = 'Collapsed'
                 $items = [System.Collections.Generic.List[PSCustomObject]]::new()
