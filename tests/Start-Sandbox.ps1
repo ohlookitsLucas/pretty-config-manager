@@ -63,12 +63,20 @@ Set-ADSearchFactory  (New-MockADSearchFactory)
 # ── Initialize UI ──
 # Load Theme + Language first (extracted from Ui.ps1), then Ui.ps1 itself.
 # Uses explicit UTF-8 read so Windows PowerShell 5.1 doesn't mangle non-ASCII chars.
-$themeContent = Get-Content -Path (Join-Path $srcDir 'Theme.ps1')    -Raw -Encoding UTF8
-$langContent  = Get-Content -Path (Join-Path $srcDir 'Language.ps1') -Raw -Encoding UTF8
-$uiContent    = Get-Content -Path (Join-Path $srcDir 'Ui.ps1')      -Raw -Encoding UTF8
+$themeContent    = Get-Content -Path (Join-Path $srcDir 'Theme.ps1')          -Raw -Encoding UTF8
+$langContent     = Get-Content -Path (Join-Path $srcDir 'Language.ps1')       -Raw -Encoding UTF8
+$uiContent       = Get-Content -Path (Join-Path $srcDir 'Ui.ps1')             -Raw -Encoding UTF8
+$uiSigsContent   = Get-Content -Path (Join-Path $srcDir 'Ui.Signatures.ps1')  -Raw -Encoding UTF8
+$uiPermsContent  = Get-Content -Path (Join-Path $srcDir 'Ui.Permissions.ps1') -Raw -Encoding UTF8
+$uiWizContent    = Get-Content -Path (Join-Path $srcDir 'Ui.Wizard.ps1')      -Raw -Encoding UTF8
+$uiExtrasContent = Get-Content -Path (Join-Path $srcDir 'Ui.Extras.ps1')      -Raw -Encoding UTF8
 Invoke-Expression $themeContent
 Invoke-Expression $langContent
 Invoke-Expression $uiContent
+Invoke-Expression $uiSigsContent
+Invoke-Expression $uiPermsContent
+Invoke-Expression $uiWizContent
+Invoke-Expression $uiExtrasContent
 
 # Redirect Ui.ps1's settings path to sandbox (set after dot-source)
 $script:SettingsPath = $sandbox.SettingsFile

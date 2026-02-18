@@ -1,7 +1,11 @@
 $files = @(
-    'C:\Users\nony\Documents\vsco\outlookmAnAger\src\Ui.ps1',
-    'C:\Users\nony\Documents\vsco\outlookmAnAger\src\Theme.ps1',
-    'C:\Users\nony\Documents\vsco\outlookmAnAger\src\Language.ps1'
+    'C:\Users\nony\Documents\vsco\PCM\src\Ui.ps1',
+    'C:\Users\nony\Documents\vsco\PCM\src\Ui.Signatures.ps1',
+    'C:\Users\nony\Documents\vsco\PCM\src\Ui.Permissions.ps1',
+    'C:\Users\nony\Documents\vsco\PCM\src\Ui.Wizard.ps1',
+    'C:\Users\nony\Documents\vsco\PCM\src\Ui.Extras.ps1',
+    'C:\Users\nony\Documents\vsco\PCM\src\Theme.ps1',
+    'C:\Users\nony\Documents\vsco\PCM\src\Language.ps1'
 )
 foreach ($f in $files) {
     $tokens = $null

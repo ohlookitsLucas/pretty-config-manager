@@ -43,6 +43,10 @@ try {
     . (Join-Path $scriptDir 'Theme.ps1')
     . (Join-Path $scriptDir 'Language.ps1')
     . (Join-Path $scriptDir 'Ui.ps1')
+    . (Join-Path $scriptDir 'Ui.Signatures.ps1')
+    . (Join-Path $scriptDir 'Ui.Permissions.ps1')
+    . (Join-Path $scriptDir 'Ui.Wizard.ps1')
+    . (Join-Path $scriptDir 'Ui.Extras.ps1')
 
     Initialize-Ui -Window $window -ScriptRoot $scriptDir
 
