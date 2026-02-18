@@ -8,7 +8,6 @@ function Initialize-WizardTab {
     $panelPermReportCnt  = $Window.FindName('PanelPermReportContent')
     $lbWizMailboxes      = $Window.FindName('LbWizMailboxes')
     $txtWizUserSearch    = $Window.FindName('TxtWizUserSearch')
-    $borderWizAdResults  = $Window.FindName('BorderWizAdResults')
     $lbWizAdResults      = $Window.FindName('LbWizAdResults')
     $panelWizSelectedUsers = $Window.FindName('PanelWizSelectedUsers')
     $panelWizFolders     = $Window.FindName('PanelWizFolders')
@@ -20,7 +19,6 @@ function Initialize-WizardTab {
     $script:wizPanelPermReportCnt    = $panelPermReportCnt
     $script:wizLbMailboxes           = $lbWizMailboxes
     $script:wizTxtUserSearch         = $txtWizUserSearch
-    $script:wizBorderAdResults       = $borderWizAdResults
     $script:wizLbAdResults           = $lbWizAdResults
     $script:wizPanelSelectedUsers    = $panelWizSelectedUsers
     $script:wizPanelFolders          = $panelWizFolders
@@ -28,7 +26,7 @@ function Initialize-WizardTab {
     $script:wizPanelSummary          = $panelWizSummary
     $script:wizTxtResult             = $txtWizResult
 
-    # Bind mailbox list — $script:permAllAccounts is already OG-filtered by Initialize-PermissionsTab
+    # Bind mailbox list — $script:permAllAccounts is loaded by Initialize-PermissionsTab
     $lbWizMailboxes.ItemsSource = $script:permAllAccounts
 
     # ── Wizard state ──────────────────────────────────────────────────────────
@@ -68,7 +66,7 @@ function Initialize-WizardTab {
         $script:wizFolderCheckboxes = @()
         if ($null -ne $script:wizLbMailboxes) { $script:wizLbMailboxes.SelectedIndex = -1 }
         if ($null -ne $script:wizTxtUserSearch) { $script:wizTxtUserSearch.Text = '' }
-        if ($null -ne $script:wizBorderAdResults) { $script:wizBorderAdResults.Visibility = 'Collapsed' }
+        if ($null -ne $script:wizLbAdResults) { $script:wizLbAdResults.ItemsSource = $null }
         if ($null -ne $script:wizPanelSelectedUsers) { $script:wizPanelSelectedUsers.Children.Clear() }
         if ($null -ne $script:wizPanelFolders) { $script:wizPanelFolders.Children.Clear() }
         if ($null -ne $script:wizPanelPermLevels) { $script:wizPanelPermLevels.Children.Clear() }
@@ -84,13 +82,36 @@ function Initialize-WizardTab {
         try {
             $overview = Get-PermissionsOverview
             if ($overview.Count -eq 0) {
-                $empty = New-Object System.Windows.Controls.TextBlock
-                $empty.Text      = Get-Str 'OverviewEmpty'
-                $empty.FontStyle = [System.Windows.FontStyles]::Italic
-                $empty.FontSize  = 12
-                $empty.Margin    = [System.Windows.Thickness]::new(0, 4, 0, 0)
-                $empty.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
-                $script:wizPanelPermReportCnt.Children.Add($empty) | Out-Null
+                # COM not yet ready or no accounts found — show stub headers from
+                # the already-loaded OG- account list so the user sees something.
+                if ($null -ne $script:permAllAccounts -and $script:permAllAccounts.Count -gt 0) {
+                    foreach ($acct in $script:permAllAccounts) {
+                        $stubBtn = New-Object System.Windows.Controls.Button
+                        $stubBtn.Content             = "$($acct.Name) ($($acct.SmtpAddress))"
+                        $stubBtn.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Stretch
+                        $stubBtn.HorizontalContentAlignment = [System.Windows.HorizontalAlignment]::Left
+                        $stubBtn.Margin              = [System.Windows.Thickness]::new(0, 4, 0, 0)
+                        $stubBtn.Padding             = [System.Windows.Thickness]::new(4, 3, 4, 3)
+                        $stubBtn.IsEnabled           = $false
+                        $stubBtn.SetResourceReference([System.Windows.Controls.Control]::StyleProperty, 'SecondaryButton')
+                        $script:wizPanelPermReportCnt.Children.Add($stubBtn) | Out-Null
+                    }
+                    $hint = New-Object System.Windows.Controls.TextBlock
+                    $hint.Text      = Get-Str 'OverviewEmpty'
+                    $hint.FontStyle = [System.Windows.FontStyles]::Italic
+                    $hint.FontSize  = 11
+                    $hint.Margin    = [System.Windows.Thickness]::new(0, 6, 0, 0)
+                    $hint.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
+                    $script:wizPanelPermReportCnt.Children.Add($hint) | Out-Null
+                } else {
+                    $empty = New-Object System.Windows.Controls.TextBlock
+                    $empty.Text      = Get-Str 'OverviewEmpty'
+                    $empty.FontStyle = [System.Windows.FontStyles]::Italic
+                    $empty.FontSize  = 12
+                    $empty.Margin    = [System.Windows.Thickness]::new(0, 4, 0, 0)
+                    $empty.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'TextSecondaryBrush')
+                    $script:wizPanelPermReportCnt.Children.Add($empty) | Out-Null
+                }
                 return
             }
 
@@ -224,20 +245,16 @@ function Initialize-WizardTab {
             $script:wizLbAdResults.ItemsSource = $null
             if ($hits.Count -gt 0) {
                 $script:wizLbAdResults.ItemsSource = $hits
-                $script:wizBorderAdResults.Visibility = 'Visible'
             } else {
-                $script:wizBorderAdResults.Visibility = 'Collapsed'
                 Set-WizStatus 2 (Get-Str 'PermNoAdMatches') ''
             }
-        } catch {
-            $script:wizBorderAdResults.Visibility = 'Collapsed'
-        }
+        } catch {}
     }
 
     $txtWizUserSearch.Add_TextChanged({
         $q = $script:wizTxtUserSearch.Text.Trim()
         if ($null -ne $script:wizAdTimer) { $script:wizAdTimer.Stop(); $script:wizAdTimer = $null }
-        if ($q.Length -lt 3) { $script:wizBorderAdResults.Visibility = 'Collapsed'; return }
+        if ($q.Length -lt 5) { $script:wizLbAdResults.ItemsSource = $null; return }
         $script:wizAdLastQuery = $q
         $t = New-Object System.Windows.Threading.DispatcherTimer
         $t.Interval = [System.TimeSpan]::FromMilliseconds(350)
@@ -254,7 +271,7 @@ function Initialize-WizardTab {
         if ($script:wizSelectedUsers.Contains($value)) { return }
         $script:wizSelectedUsers.Add($value)
         $script:wizTxtUserSearch.Text = ''
-        $script:wizBorderAdResults.Visibility = 'Collapsed'
+        $script:wizLbAdResults.ItemsSource    = $null
         $script:wizLbAdResults.SelectedIndex  = -1
         Set-WizStatus 2 ''
         # Build removable user pill
@@ -492,5 +509,17 @@ function Initialize-WizardTab {
     $Window.FindName('BtnWizReset').Add_Click({ Reset-Wizard })
 
     Reset-Wizard
-    Render-PermOverview
+
+    # Lazy render: trigger overview when the Easy tab is selected (Outlook COM is warm by then).
+    # Attaches to the parent TabControl's SelectionChanged — TabItem has no Add_Selected method.
+    # Guard ensures we only render when switching TO TabPermEasy, not to Advanced.
+    $tabsPermInner = $Window.FindName('TabsPermInner')
+    if ($null -ne $tabsPermInner) {
+        $tabsPermInner.Add_SelectionChanged({
+            $sel = $script:windowRef.FindName('TabsPermInner').SelectedItem
+            if ($null -ne $sel -and $sel.Name -eq 'TabPermEasy') {
+                Render-PermOverview
+            }
+        })
+    }
 }

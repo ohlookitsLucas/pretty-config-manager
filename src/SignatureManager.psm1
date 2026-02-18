@@ -345,26 +345,38 @@ function Get-SignatureAssignments {
         }
     }
 
-    # If registry yielded no per-account entries (e.g. delegated/shared mailboxes that
-    # aren't full Outlook accounts and have no profile subkeys), fall back to the live
-    # Outlook COM object — same source the Permissions tab uses.
-    if ($perAccount.Count -eq 0) {
-        try {
-            $ol = New-Object -ComObject Outlook.Application -ErrorAction Stop
-            $ns = $ol.GetNameSpace('MAPI')
-            for ($i = 1; $i -le $ns.Accounts.Count; $i++) {
-                $acc  = $ns.Accounts.Item($i)
-                $smtp = ''; try { $smtp = $acc.SmtpAddress } catch {}
-                if ([string]::IsNullOrEmpty($smtp)) { continue }
-                $perAccount += [PSCustomObject]@{
-                    AccountName    = $acc.DisplayName
-                    SmtpAddress    = $smtp
-                    NewSignature   = ''
-                    ReplySignature = ''
-                    RegistryPath   = $script:RegBase
-                }
+    Write-SigLog 'INFO' "Get-SignatureAssignments: registry scan found $($perAccount.Count) account(s)"
+
+    # Always merge COM accounts — catches delegated/shared mailboxes (OG- accounts added
+    # via Exchange delegation) that have no independent Outlook profile registry entries.
+    # Deduplicates by SMTP so registry-sourced entries are not duplicated.
+    try {
+        $ol = New-Object -ComObject Outlook.Application -ErrorAction Stop
+        $ns = $ol.GetNameSpace('MAPI')
+        $existingSmtps = @($perAccount | ForEach-Object { $_.SmtpAddress })
+        Write-SigLog 'INFO' "Get-SignatureAssignments: COM merge — Outlook.Accounts.Count=$($ns.Accounts.Count)"
+        for ($i = 1; $i -le $ns.Accounts.Count; $i++) {
+            $acc  = $ns.Accounts.Item($i)
+            $smtp = ''; try { $smtp = $acc.SmtpAddress } catch {}
+            if ([string]::IsNullOrEmpty($smtp)) {
+                Write-SigLog 'INFO' "  COM[$i] '$($acc.DisplayName)' — SMTP empty, skipped"
+                continue
             }
-        } catch {}
+            if ($existingSmtps -contains $smtp) {
+                Write-SigLog 'INFO' "  COM[$i] '$($acc.DisplayName)' <$smtp> — already in registry list, skipped"
+                continue
+            }
+            Write-SigLog 'INFO' "  COM[$i] '$($acc.DisplayName)' <$smtp> — added (not in registry)"
+            $perAccount += [PSCustomObject]@{
+                AccountName    = $acc.DisplayName
+                SmtpAddress    = $smtp
+                NewSignature   = ''
+                ReplySignature = ''
+                RegistryPath   = $script:RegBase
+            }
+        }
+    } catch {
+        Write-SigLog 'WARN' "Get-SignatureAssignments: COM merge failed — $_"
     }
 
     # Only expose the global (Default) entry when real accounts exist

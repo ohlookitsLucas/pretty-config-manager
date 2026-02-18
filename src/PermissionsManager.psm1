@@ -179,6 +179,32 @@ function Get-MailboxFolders {
             }
         }
 
+        # Tier 2b: FilePath match for non-standard OST/PST directories
+        # Handles custom store locations (e.g. AppData\Local\AA_OST, AppData\Local\AA_PST)
+        $ostDir    = Join-Path $env:LOCALAPPDATA 'AA_OST'
+        $pstDir    = Join-Path $env:LOCALAPPDATA 'AA_PST'
+        $smtpLocal = ($SmtpAddress -split '@')[0]
+        for ($i = 1; $i -le $ns.Stores.Count; $i++) {
+            $store = $ns.Stores.Item($i)
+            try {
+                $fp = $store.FilePath
+                if ([string]::IsNullOrEmpty($fp)) { continue }
+                $inAaDir = ($fp.StartsWith($ostDir, [System.StringComparison]::OrdinalIgnoreCase) -or
+                            $fp.StartsWith($pstDir, [System.StringComparison]::OrdinalIgnoreCase))
+                if (-not $inAaDir) { continue }
+                # Secondary guard: filename or store display name loosely matches SMTP local part
+                $fn = [System.IO.Path]::GetFileNameWithoutExtension($fp)
+                $sn = ''; try { $sn = $store.DisplayName } catch {}
+                if ($fn -like "*$smtpLocal*" -or $sn -like "*$smtpLocal*" -or
+                    $fn -like "*$SmtpAddress*" -or $sn -like "*$SmtpAddress*") {
+                    try {
+                        $root = $store.GetRootFolder()
+                        return Get-FoldersRecursive -Folder $root -Depth 0
+                    } catch {}
+                }
+            } catch {}
+        }
+
         # Last resort: first store
         $firstRoot = $ns.Stores.Item(1).GetRootFolder()
         return Get-FoldersRecursive -Folder $firstRoot -Depth 0
@@ -351,18 +377,24 @@ function Remove-FolderPermission {
 
 function Search-ADUsers {
     <#
-      Searches Active Directory for users matching a display name, email, or
-      sAMAccountName. Returns up to 20 results.
+      Searches Active Directory for OG- mail-enabled groups matching the query.
+      Returns up to 20 results.
       Each item: [PSCustomObject]@{ DisplayName; Mail; SamAccountName }
       Returns empty array gracefully if not domain-joined or AD unreachable.
 
+      3-branch query logic (matches working reference implementation):
+        @  in query  →  rewrite as sAMAccountName=OG-{domain}-{user}  (email input)
+        OG-* prefix  →  sAMAccountName wildcard OG-input*
+        free text    →  displayName wildcard OG-*input*
+
       Performance notes:
-      - Minimum query length is 3 to avoid massive unindexed wildcard scans
+      - Minimum query length is 5 to avoid massive unindexed wildcard scans
       - Results are cached in-memory for 60 seconds per unique query
       - ServerTimeLimit caps the DC wait at 4 seconds to avoid UI hangs
+      - objectCategory=group scopes to AD groups only (OG- are mail-enabled groups)
     #>
     param([string]$Query)
-    if ([string]::IsNullOrWhiteSpace($Query) -or $Query.Length -lt 3) { return @() }
+    if ([string]::IsNullOrWhiteSpace($Query) -or $Query.Length -lt 5) { return @() }
     if ($script:ADSearchFactory) { return & $script:ADSearchFactory $Query }
 
     # Cache lookup
@@ -380,12 +412,27 @@ function Search-ADUsers {
         $searcher = New-Object System.DirectoryServices.DirectorySearcher
         # Escape special LDAP chars in query
         $safe = $Query -replace '[\\*()\x00]',''
-        $searcher.Filter = "(|" +
-            "(displayName=*$safe*)" +
-            "(mail=*$safe*)" +
-            "(sAMAccountName=*$safe*)" +
-            "(cn=*$safe*)" +
-            ")"
+
+        # 3-branch LDAP filter — always scoped to objectCategory=group
+        if ($Query -match '@') {
+            # Email format (user@domain.de) → rewrite to OG-domain.de-user sAMAccountName
+            $parts     = $Query -split '@', 2
+            $safePart0 = $parts[0] -replace '[\\*()\x00]',''
+            $safePart1 = if ($parts.Count -gt 1) { $parts[1] -replace '[\\*()\x00]','' } else { '' }
+            if ([string]::IsNullOrEmpty($safePart0) -or [string]::IsNullOrEmpty($safePart1)) {
+                return @()   # incomplete email — skip query
+            }
+            $sam   = "OG-$safePart1-$safePart0"
+            $ldap  = "(&(objectCategory=group)(sAMAccountName=$sam))"
+        } elseif ($Query -like 'OG-*') {
+            # Already OG- prefixed → direct sAMAccountName wildcard
+            $ldap  = "(&(objectCategory=group)(sAMAccountName=$safe*))"
+        } else {
+            # Free text → displayName wildcard with OG- prefix anchored
+            $ldap  = "(&(objectCategory=group)(displayName=OG-*$safe*))"
+        }
+
+        $searcher.Filter = $ldap
         $searcher.PropertiesToLoad.AddRange(@('displayName','mail','sAMAccountName')) | Out-Null
         $searcher.SizeLimit        = 20
         $searcher.ServerTimeLimit  = [System.TimeSpan]::FromSeconds(4)

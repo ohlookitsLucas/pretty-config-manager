@@ -779,57 +779,47 @@
 
           <!-- ══ Easy sub-tab (default) ══ -->
           <TabItem Header="Easy" Name="TabPermEasy">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,8,0,0">
-              <Grid>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="12"/>
-                  <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+            <Grid Margin="0,8,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
 
-                <!-- ── Permissions Overview (left) ── -->
-                <StackPanel Grid.Column="0">
-                  <TextBlock Name="TxtLblPermOverview" Text="PERMISSIONS OVERVIEW"
-                             FontWeight="SemiBold" FontSize="11"
-                             Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,8"/>
-                  <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
-                          BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
-                          Padding="16,12">
-                    <StackPanel>
-                      <Border Name="PanelPermReport" Visibility="Visible"
-                              Background="{DynamicResource BgBrush}" CornerRadius="6"
-                              Padding="12,10" MaxHeight="400">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                          <StackPanel Name="PanelPermReportContent"/>
-                        </ScrollViewer>
-                      </Border>
-                      <Button Name="BtnRefreshEasyMailboxes" Content="Refresh mailboxes"
-                              Margin="0,10,0,0" HorizontalAlignment="Stretch"
-                              Style="{DynamicResource SecondaryButton}"/>
-                    </StackPanel>
-                  </Border>
-                </StackPanel>
-
-                <!-- ── Quick Setup Wizard (right) ── -->
-                <StackPanel Grid.Column="2">
-                  <TextBlock Name="TxtLblPermWizard" Text="QUICK SETUP"
-                             FontWeight="SemiBold" FontSize="11"
-                             Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,8"/>
-                  <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
-                          BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
-                          Padding="16,12">
-                  <StackPanel>
-                    <TextBlock Name="TxtWizardDesc"
+              <!-- ── Quick Setup Wizard (left) ── -->
+              <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Name="TxtLblPermWizard" Text="QUICK SETUP"
+                           FontWeight="SemiBold" FontSize="11"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,8"/>
+                <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                        Padding="16,12">
+                  <Grid>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Name="TxtWizardDesc"
                                Text="Set up folder permissions step by step."
                                Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                TextWrapping="Wrap" Margin="0,0,0,10"/>
 
                     <!-- Step 1: Choose mailbox -->
-                    <StackPanel Name="WizStep1">
-                      <TextBlock Name="TxtWizStep1" FontSize="14" FontWeight="SemiBold"
+                    <Grid Grid.Row="1" Name="WizStep1">
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                      </Grid.RowDefinitions>
+                      <TextBlock Grid.Row="0" Name="TxtWizStep1" FontSize="14" FontWeight="SemiBold"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                  Text="Step 1: Choose a mailbox you want to edit" Margin="0,0,0,8"/>
-                      <ListBox Name="LbWizMailboxes" MaxHeight="200">
+                      <ListBox Grid.Row="1" Name="LbWizMailboxes" ScrollViewer.VerticalScrollBarVisibility="Auto">
                         <ListBox.ItemTemplate>
                           <DataTemplate>
                             <StackPanel Margin="0,2,0,2">
@@ -841,109 +831,175 @@
                           </DataTemplate>
                         </ListBox.ItemTemplate>
                       </ListBox>
-                      <TextBlock Name="TxtWizStatus1" FontSize="12" Margin="0,6,0,0"
+                      <TextBlock Grid.Row="2" Name="TxtWizStatus1" FontSize="12" Margin="0,6,0,0"
                                  Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-                      <Button Name="BtnWizNext1" Content="Next" Margin="0,10,0,0"
+                      <Button Grid.Row="3" Name="BtnWizNext1" Content="Next" Margin="0,10,0,0"
                               HorizontalAlignment="Right"/>
-                    </StackPanel>
+                    </Grid>
 
                     <!-- Step 2: Choose users -->
-                    <StackPanel Name="WizStep2" Visibility="Collapsed">
-                      <TextBlock Name="TxtWizStep2" FontSize="14" FontWeight="SemiBold"
+                    <Grid Grid.Row="1" Name="WizStep2" Visibility="Collapsed">
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="120"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                      </Grid.RowDefinitions>
+                      <TextBlock Grid.Row="0" Name="TxtWizStep2" FontSize="14" FontWeight="SemiBold"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                  Text="Step 2: Choose users you want to give permissions to" Margin="0,0,0,8"/>
-                      <StackPanel>
-                        <TextBox Name="TxtWizUserSearch" Tag="Search by name or email..."
+                      <!-- AD search: TextBox + results ListBox filling remaining space -->
+                      <Grid Grid.Row="1">
+                        <Grid.RowDefinitions>
+                          <RowDefinition Height="Auto"/>
+                          <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBox Grid.Row="0" Name="TxtWizUserSearch" Tag="Search by name or email..."
                                  ToolTip="Search Active Directory or type an email address directly"/>
-                        <Border Name="BorderWizAdResults" Visibility="Collapsed" Margin="0,2,0,0"
-                                Background="{DynamicResource SurfaceBrush}"
-                                BorderBrush="{DynamicResource AccentBrush}"
-                                BorderThickness="1" CornerRadius="4">
-                          <ListBox Name="LbWizAdResults" MaxHeight="200" BorderThickness="0"
-                                   Background="{DynamicResource SurfaceBrush}"
-                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
-                            <ListBox.ItemContainerStyle>
-                              <Style TargetType="ListBoxItem">
-                                <Setter Property="Padding" Value="8,2"/>
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                              </Style>
-                            </ListBox.ItemContainerStyle>
-                            <ListBox.ItemTemplate>
-                              <DataTemplate>
-                                <StackPanel Margin="0,1">
-                                  <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12"
-                                             Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                  <TextBlock Text="{Binding Mail}" FontSize="11"
-                                             Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                </StackPanel>
-                              </DataTemplate>
-                            </ListBox.ItemTemplate>
-                          </ListBox>
-                        </Border>
-                      </StackPanel>
-                      <TextBlock Name="TxtWizSelectedLabel" Text="" FontSize="11" Margin="0,8,0,4"
+                        <ListBox Grid.Row="1" Name="LbWizAdResults" Margin="0,2,0,0" BorderThickness="1"
+                                 Background="{DynamicResource SurfaceBrush}"
+                                 BorderBrush="{DynamicResource BorderBrush}"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                          <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                              <Setter Property="Padding" Value="8,2"/>
+                              <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            </Style>
+                          </ListBox.ItemContainerStyle>
+                          <ListBox.ItemTemplate>
+                            <DataTemplate>
+                              <StackPanel Margin="0,1">
+                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{Binding Mail}" FontSize="11"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                              </StackPanel>
+                            </DataTemplate>
+                          </ListBox.ItemTemplate>
+                        </ListBox>
+                      </Grid>
+                      <!-- Selected users label -->
+                      <TextBlock Grid.Row="2" Name="TxtWizSelectedLabel" Text="Selected users:" FontSize="11" Margin="0,8,0,4"
                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
-                      <StackPanel Name="PanelWizSelectedUsers"/>
-                      <TextBlock Name="TxtWizStatus2" FontSize="12" Margin="0,6,0,0"
+                      <!-- Dedicated selected-users box (always visible, scrollable) -->
+                      <Border Grid.Row="3" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                              CornerRadius="4" Background="{DynamicResource BgBrush}" Padding="6,4">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                          <StackPanel Name="PanelWizSelectedUsers"/>
+                        </ScrollViewer>
+                      </Border>
+                      <TextBlock Grid.Row="4" Name="TxtWizStatus2" FontSize="12" Margin="0,6,0,0"
                                  Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-                      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                      <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
                         <Button Name="BtnWizBack2" Content="Back" Style="{DynamicResource SecondaryButton}" Margin="0,0,8,0"/>
                         <Button Name="BtnWizNext2" Content="Next"/>
                       </StackPanel>
-                    </StackPanel>
+                    </Grid>
 
                     <!-- Step 3: Choose folders -->
-                    <StackPanel Name="WizStep3" Visibility="Collapsed">
-                      <TextBlock Name="TxtWizStep3" FontSize="14" FontWeight="SemiBold"
+                    <Grid Grid.Row="1" Name="WizStep3" Visibility="Collapsed">
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                      </Grid.RowDefinitions>
+                      <TextBlock Grid.Row="0" Name="TxtWizStep3" FontSize="14" FontWeight="SemiBold"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                  Text="Step 3: Select folders you want to share" Margin="0,0,0,8"/>
-                      <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto">
+                      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                         <StackPanel Name="PanelWizFolders"/>
                       </ScrollViewer>
-                      <TextBlock Name="TxtWizStatus3" FontSize="12" Margin="0,6,0,0"
+                      <TextBlock Grid.Row="2" Name="TxtWizStatus3" FontSize="12" Margin="0,6,0,0"
                                  Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-                      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
                         <Button Name="BtnWizBack3" Content="Back" Style="{DynamicResource SecondaryButton}" Margin="0,0,8,0"/>
                         <Button Name="BtnWizNext3" Content="Next"/>
                       </StackPanel>
-                    </StackPanel>
+                    </Grid>
 
                     <!-- Step 4: Choose permission level -->
-                    <StackPanel Name="WizStep4" Visibility="Collapsed">
-                      <TextBlock Name="TxtWizStep4" FontSize="14" FontWeight="SemiBold"
+                    <Grid Grid.Row="1" Name="WizStep4" Visibility="Collapsed">
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                      </Grid.RowDefinitions>
+                      <TextBlock Grid.Row="0" Name="TxtWizStep4" FontSize="14" FontWeight="SemiBold"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                  Text="Step 4: What should they be able to do?" Margin="0,0,0,8"/>
-                      <StackPanel Name="PanelWizPermLevels"/>
-                      <TextBlock Name="TxtWizStatus4" FontSize="12" Margin="0,6,0,0"
+                      <StackPanel Grid.Row="1" Name="PanelWizPermLevels"/>
+                      <TextBlock Grid.Row="2" Name="TxtWizStatus4" FontSize="12" Margin="0,6,0,0"
                                  Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
-                      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
                         <Button Name="BtnWizBack4" Content="Back" Style="{DynamicResource SecondaryButton}" Margin="0,0,8,0"/>
                         <Button Name="BtnWizNext4" Content="Next"/>
                       </StackPanel>
-                    </StackPanel>
+                    </Grid>
 
                     <!-- Step 5: Summary + Execute -->
-                    <StackPanel Name="WizStep5" Visibility="Collapsed">
-                      <TextBlock Name="TxtWizStep5" FontSize="14" FontWeight="SemiBold"
+                    <Grid Grid.Row="1" Name="WizStep5" Visibility="Collapsed">
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                      </Grid.RowDefinitions>
+                      <TextBlock Grid.Row="0" Name="TxtWizStep5" FontSize="14" FontWeight="SemiBold"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                  Text="Step 5: Review and apply" Margin="0,0,0,8"/>
-                      <Border Background="{DynamicResource BgBrush}" CornerRadius="6" Padding="12,10">
-                        <StackPanel Name="PanelWizSummary"/>
+                      <Border Grid.Row="1" Background="{DynamicResource BgBrush}" CornerRadius="6" Padding="12,10">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                          <StackPanel Name="PanelWizSummary"/>
+                        </ScrollViewer>
                       </Border>
-                      <TextBlock Name="TxtWizResult" Margin="0,8,0,0" TextWrapping="Wrap"
+                      <TextBlock Grid.Row="2" Name="TxtWizResult" Margin="0,8,0,0" TextWrapping="Wrap"
                                  Foreground="{DynamicResource TextSecondaryBrush}"/>
-                      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
                         <Button Name="BtnWizBack5" Content="Back" Style="{DynamicResource SecondaryButton}" Margin="0,0,8,0"/>
                         <Button Name="BtnWizApply" Content="Apply permissions" Margin="0,0,8,0"/>
                         <Button Name="BtnWizReset" Content="Start over" Style="{DynamicResource SecondaryButton}"/>
                       </StackPanel>
-                    </StackPanel>
+                    </Grid>
 
-                  </StackPanel>
+                  </Grid>
                 </Border>
-                </StackPanel>
               </Grid>
-            </ScrollViewer>
+
+              <!-- ── Permissions Overview (right) ── -->
+              <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Name="TxtLblPermOverview" Text="PERMISSIONS OVERVIEW"
+                           FontWeight="SemiBold" FontSize="11"
+                           Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,8"/>
+                <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1.5"
+                        Padding="16,12">
+                  <Grid>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="*"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Name="PanelPermReport" Visibility="Visible"
+                            Background="{DynamicResource BgBrush}" CornerRadius="6"
+                            Padding="12,10">
+                      <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Name="PanelPermReportContent"/>
+                      </ScrollViewer>
+                    </Border>
+                    <Button Grid.Row="1" Name="BtnRefreshEasyMailboxes" Content="Refresh mailboxes"
+                            Margin="0,10,0,0" HorizontalAlignment="Stretch"
+                            Style="{DynamicResource SecondaryButton}"/>
+                  </Grid>
+                </Border>
+              </Grid>
+            </Grid>
           </TabItem>
 
           <!-- ══ Advanced sub-tab ══ -->
@@ -1138,36 +1194,36 @@
                              IsHitTestVisible="False"/>
                 </Grid>
 
-                <StackPanel Grid.Row="4">
-                  <TextBox Name="TxtAddUser"
+                <Grid Grid.Row="4" Height="180">
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                  </Grid.RowDefinitions>
+                  <TextBox Grid.Row="0" Name="TxtAddUser"
                            Tag="Search by name or email..."
                            ToolTip="Search Active Directory or type an email address directly"/>
-                  <Border Name="BorderAdResults" Visibility="Collapsed" Margin="0,2,0,0"
-                          Background="{DynamicResource SurfaceBrush}"
-                          BorderBrush="{DynamicResource AccentBrush}"
-                          BorderThickness="1" CornerRadius="4">
-                    <ListBox Name="LbAdResults" MaxHeight="200" BorderThickness="0"
-                             Background="{DynamicResource SurfaceBrush}"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto">
-                      <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem">
-                          <Setter Property="Padding" Value="8,2"/>
-                          <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                        </Style>
-                      </ListBox.ItemContainerStyle>
-                      <ListBox.ItemTemplate>
-                        <DataTemplate>
-                          <StackPanel Margin="0,1">
-                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Text="{Binding Mail}" FontSize="11"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
-                          </StackPanel>
-                        </DataTemplate>
-                      </ListBox.ItemTemplate>
-                    </ListBox>
-                  </Border>
-                </StackPanel>
+                  <ListBox Grid.Row="1" Name="LbAdResults" Margin="0,2,0,0" BorderThickness="1"
+                           Background="{DynamicResource SurfaceBrush}"
+                           BorderBrush="{DynamicResource BorderBrush}"
+                           ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListBox.ItemContainerStyle>
+                      <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="8,2"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                      </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                      <DataTemplate>
+                        <StackPanel Margin="0,1">
+                          <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"/>
+                          <TextBlock Text="{Binding Mail}" FontSize="11"
+                                     Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                </Grid>
 
                 <ComboBox Grid.Row="6" Name="CbPermLevel"
                           Background="{DynamicResource SurfaceBrush}"
@@ -1288,7 +1344,7 @@
 
       <!-- ── About section ── -->
       <Grid Name="PanelAboutContent" Visibility="Collapsed">
-        <TextBlock Text="Inspired by G.Q. and B.B., made by Lucas and Claude."
+        <TextBlock Text="Inspired by BB and GQ, made by Lucas and Claude."
                    FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
       </Grid>
